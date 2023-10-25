@@ -3,7 +3,7 @@ def plot1(ax1, ax2, ax3, ax4, ax5, ax6):
     ax1.tick_params(axis='y', labelsize=12) 
     ax1.tick_params(axis='x', labelsize=12) 
     #ax1.set_xlabel('Clay [%]', fontsize = 16) 
-    ax1.set_ylabel('Klf [m3/kg]', fontsize = 16) 
+    ax1.set_ylabel('Klf_IP [m-3]', fontsize = 16) 
     ax1.grid(True) 
     ax1.set_xlim(0, 80) 
 
@@ -19,7 +19,7 @@ def plot1(ax1, ax2, ax3, ax4, ax5, ax6):
     ax3.tick_params(axis='y', labelsize=12) 
     ax3.tick_params(axis='x', labelsize=12) 
     #ax3.set_xlabel('Clay [%]', fontsize = 16) 
-    ax3.set_ylabel('Klf [m3/kg]', fontsize = 16) 
+    ax3.set_ylabel('Klf_IP [m-3]', fontsize = 16) 
     ax3.grid(True) 
     ax3.set_xlim(0, 80) 
 
@@ -35,7 +35,7 @@ def plot1(ax1, ax2, ax3, ax4, ax5, ax6):
     ax5.tick_params(axis='y', labelsize=12) 
     ax5.tick_params(axis='x', labelsize=12) 
     ax5.set_xlabel('Clay [%]', fontsize = 16) 
-    ax5.set_ylabel('Klf [m3/kg]', fontsize = 16) 
+    ax5.set_ylabel('Klf_IP [m-3]', fontsize = 16) 
     ax5.grid(True) 
     ax5.set_xlim(0, 80) 
 
@@ -108,7 +108,7 @@ def plot3(ax1, ax2, ax3, ax4, ax5, ax6):
     #ax1.set_xlabel('Clay [%]', fontsize = 16) 
     ax1.set_ylabel('Kfd [%]', fontsize = 16) 
     ax1.grid(True) 
-    ax1.set_ylim(0, 30)  
+    ax1.set_ylim(0, 5e-3)  
     ax1.set_xlim(0, 80) 
     ax1.legend(loc='upper right', fontsize = 10)
 
@@ -119,7 +119,7 @@ def plot3(ax1, ax2, ax3, ax4, ax5, ax6):
     #ax2.set_xlabel('CEC [meq/100g]', fontsize = 16) 
     #ax2.set_ylabel('Kfd [%]', fontsize = 16) 
     ax2.grid(True) 
-    ax2.set_ylim(0, 30)  
+    ax2.set_ylim(0, 5e-3)  
     ax2.set_xlim(0, 45) 
     ax2.legend(loc='upper right', fontsize = 10)
 
@@ -130,7 +130,7 @@ def plot3(ax1, ax2, ax3, ax4, ax5, ax6):
     #ax3.set_xlabel('Clay [%]', fontsize = 16) 
     ax3.set_ylabel('Kfd [%]', fontsize = 16) 
     ax3.grid(True) 
-    ax3.set_ylim(0, 30)  
+    ax3.set_ylim(0, 5e-3)  
     ax3.set_xlim(0, 80) 
     ax3.legend(loc='upper right', fontsize = 10)
 
@@ -141,7 +141,7 @@ def plot3(ax1, ax2, ax3, ax4, ax5, ax6):
     #ax4.set_xlabel('CEC [meq/100g]', fontsize = 16) 
     #ax4.set_ylabel('Kfd [%]', fontsize = 16) 
     ax4.grid(True) 
-    ax4.set_ylim(0, 30)  
+    ax4.set_ylim(0, 5e-3)  
     ax4.set_xlim(0, 45) 
     ax4.legend(loc='upper right', fontsize = 10)
 
@@ -152,7 +152,7 @@ def plot3(ax1, ax2, ax3, ax4, ax5, ax6):
     ax5.set_xlabel('Clay [%]', fontsize = 16) 
     ax5.set_ylabel('Kfd [%]', fontsize = 16) 
     ax5.grid(True) 
-    ax5.set_ylim(0, 30)  
+    ax5.set_ylim(0, 5e-3)  
     ax5.set_xlim(0, 80) 
     ax5.legend(loc='upper right', fontsize = 10)
 
@@ -163,6 +163,6 @@ def plot3(ax1, ax2, ax3, ax4, ax5, ax6):
     ax6.set_xlabel('CEC [meq/100g]', fontsize = 16) 
     #ax6.set_ylabel('Kfd [%]', fontsize = 16) 
     ax6.grid(True) 
-    ax6.set_ylim(0, 30)  
+    ax6.set_ylim(0, 5e-3)  
     ax6.set_xlim(0, 45) 
     ax6.legend(loc='upper right', fontsize = 10)
