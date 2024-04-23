@@ -1,9 +1,11 @@
-def plot1(ax1, ax2, ax3, ax4, ax5, ax6):
+def plot1(fig1, ax1, ax2, ax3, ax4, ax5, ax6):
+    fig1.tight_layout()
+
     #ax1.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
     ax1.tick_params(axis='y', labelsize=12) 
     ax1.tick_params(axis='x', labelsize=12) 
     #ax1.set_xlabel('Clay [%]', fontsize = 16) 
-    ax1.set_ylabel('Klf_IP [m-3]', fontsize = 16) 
+    ax1.set_ylabel('Klf_IP [m-3] all', fontsize = 16) 
     ax1.grid(True) 
     ax1.set_xlim(0, 80) 
 
@@ -19,7 +21,7 @@ def plot1(ax1, ax2, ax3, ax4, ax5, ax6):
     ax3.tick_params(axis='y', labelsize=12) 
     ax3.tick_params(axis='x', labelsize=12) 
     #ax3.set_xlabel('Clay [%]', fontsize = 16) 
-    ax3.set_ylabel('Klf_IP [m-3]', fontsize = 16) 
+    ax3.set_ylabel('Klf_IP [m-3] arch', fontsize = 16) 
     ax3.grid(True) 
     ax3.set_xlim(0, 80) 
 
@@ -35,7 +37,7 @@ def plot1(ax1, ax2, ax3, ax4, ax5, ax6):
     ax5.tick_params(axis='y', labelsize=12) 
     ax5.tick_params(axis='x', labelsize=12) 
     ax5.set_xlabel('Clay [%]', fontsize = 16) 
-    ax5.set_ylabel('Klf_IP [m-3]', fontsize = 16) 
+    ax5.set_ylabel('Klf_IP [m-3] no arch', fontsize = 16) 
     ax5.grid(True) 
     ax5.set_xlim(0, 80) 
 
@@ -48,12 +50,14 @@ def plot1(ax1, ax2, ax3, ax4, ax5, ax6):
     ax6.set_xlim(0, 45) 
 
 
-def plot2(ax1, ax2, ax3, ax4, ax5, ax6):
+def plot2(fig2, ax1, ax2, ax3, ax4, ax5, ax6):
+    fig2.tight_layout()
+
     #ax1.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
     ax1.tick_params(axis='y', labelsize=12) 
     ax1.tick_params(axis='x', labelsize=12) 
     #ax1.set_xlabel('Clay [%]', fontsize = 16) 
-    ax1.set_ylabel('Kfd_abs [m3/kg]', fontsize = 16) 
+    ax1.set_ylabel('Kfd_abs [m3/kg] all', fontsize = 16) 
     ax1.grid(True) 
     ax1.set_xlim(0, 80) 
 
@@ -70,7 +74,7 @@ def plot2(ax1, ax2, ax3, ax4, ax5, ax6):
     ax3.tick_params(axis='y', labelsize=12) 
     ax3.tick_params(axis='x', labelsize=12) 
     #ax3.set_xlabel('Clay [%]', fontsize = 16) 
-    ax3.set_ylabel('Kfd_abs [m3/kg]', fontsize = 16) 
+    ax3.set_ylabel('Kfd_abs [m3/kg] arch', fontsize = 16) 
     ax3.grid(True) 
     ax3.set_xlim(0, 80) 
 
@@ -87,7 +91,7 @@ def plot2(ax1, ax2, ax3, ax4, ax5, ax6):
     ax5.tick_params(axis='y', labelsize=12) 
     ax5.tick_params(axis='x', labelsize=12) 
     ax5.set_xlabel('Clay [%]', fontsize = 16) 
-    ax5.set_ylabel('Kfd_abs [m3/kg]', fontsize = 16) 
+    ax5.set_ylabel('Kfd_abs [m3/kg] no arch', fontsize = 16) 
     ax5.grid(True) 
     ax5.set_xlim(0, 80) 
 
@@ -100,13 +104,15 @@ def plot2(ax1, ax2, ax3, ax4, ax5, ax6):
     ax6.set_xlim(0, 45) 
 
 
-def plot3(ax1, ax2, ax3, ax4, ax5, ax6):
+def plot3(fig3, ax1, ax2, ax3, ax4, ax5, ax6):
+    fig3.tight_layout()
+
     ax1.legend(loc='upper right', fontsize = 8)
     #ax1.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
     ax1.tick_params(axis='y', labelsize=12) 
     ax1.tick_params(axis='x', labelsize=12) 
     #ax1.set_xlabel('Clay [%]', fontsize = 16) 
-    ax1.set_ylabel('Kfd [%]', fontsize = 16) 
+    ax1.set_ylabel('Kfd [%] all', fontsize = 16) 
     ax1.grid(True) 
     ax1.set_ylim(0, 5e-3)  
     ax1.set_xlim(0, 80) 
@@ -128,7 +134,7 @@ def plot3(ax1, ax2, ax3, ax4, ax5, ax6):
     ax3.tick_params(axis='y', labelsize=12) 
     ax3.tick_params(axis='x', labelsize=12) 
     #ax3.set_xlabel('Clay [%]', fontsize = 16) 
-    ax3.set_ylabel('Kfd [%]', fontsize = 16) 
+    ax3.set_ylabel('Kfd [%] arch', fontsize = 16) 
     ax3.grid(True) 
     ax3.set_ylim(0, 5e-3)  
     ax3.set_xlim(0, 80) 
@@ -150,7 +156,7 @@ def plot3(ax1, ax2, ax3, ax4, ax5, ax6):
     ax5.tick_params(axis='y', labelsize=12) 
     ax5.tick_params(axis='x', labelsize=12) 
     ax5.set_xlabel('Clay [%]', fontsize = 16) 
-    ax5.set_ylabel('Kfd [%]', fontsize = 16) 
+    ax5.set_ylabel('Kfd [%] no arch', fontsize = 16) 
     ax5.grid(True) 
     ax5.set_ylim(0, 5e-3)  
     ax5.set_xlim(0, 80) 
