@@ -1997,6 +1997,90 @@ def mcneill_eca(qp, frequency, coil_spacing):
     return eca
 
 
+################################### Susceptibility ############################################
+
+
+def Xlayoubi18(sand, orm, Co, Cu, Fe, Zn, pH, np):
+    """
+    Ayoubi 2018a pedotranfer equation for contaminated soils Table 3
+    """
+    return np.exp( -24.41 + 0.976*np.log(Fe) + 1.091*np.log(sand) + 0.467*np.log(Cu) + 2.211*np.log(Co) + 3.226*np.log(pH) - 0.441*np.log(orm) + 0.333*np.log(Zn))
+
+
+def Xlayoubi18pli(PLI):
+    """
+    Ayoubi 2018a pedotranfer equation for contaminated soils Figure 4
+    """
+    return (PLI -1.5801)/0.0006
+
+
+def phosphate_x(Pads):
+    """
+    Camargo et al 2016.  A total of 308 soil samples were collected from Hapludox and Eutrudox soils formed from sandstone in Brazil.
+    """
+    return (Pads - 379.182)/17.213
+
+
+def phosphate_fe(Pads):
+    """
+    Camargo et al 2016.  A total of 308 soil samples were collected from Hapludox and Eutrudox soils formed from sandstone in Brazil.
+    Fe is iron extracted by dithionite–citrate–bicarbonate (Fed),
+    """
+    return ((Pads - 214.36)/54.086)*1000
+
+
+def canbaypli(PLI):
+    """
+    Canbay et al. 2010 Fig. 6
+    The study on topsoil contamination due to heavy metals was carried out by using the Magnetic susceptibility (MS) measurements in Izmit     industrial city, northern Turkey.
+    """
+    return (PLI - 1.36)/0.01
+
+
+def canbaypoli(x, Cr, Cu, Pb, Ni, pd):
+    """
+    Own polinomial propose based on Canbay et al. 2020 dataset
+    """
+    variables = pd.DataFrame(x, columns=["Cr", "Cu", "Pb", "Ni"])
+    variables["Cr2"] = x.Cr**2
+    variables["Cu2"] = x.Cu**2
+    variables["Pb2"] = x.Pb**2
+    variables["Ni2"] = x.Ni**2
+
+    regression = linear_model.LinearRegression()
+    model = regression.fit(variables, x.Xlf)
+    score = model.score(variables, x.Xlf)
+    canbaycoef = model.coef_
+    
+    xlf = model.intercept_ + canbaycoef[0]*Cr + canbaycoef[1]*Cu + canbaycoef[2]*Pb + canbaycoef[3]*Ni + canbaycoef[4]*(Cr**2) + canbaycoef[5]*(Cu**2) + canbaycoef[6]*(Pb**2) + canbaycoef[7]*(Ni**2)
+    return xlf
+
+
+######################################### # # # # GAMMA RAY SPECTOMETRY      # # # # ###############################################
+
+
+def petersensand(sand):
+     return (sand -81.54) /6.63
+    
+def petersensilt(silt):
+    """
+    Petersen et al. 2012. Spectometry in european soils. ThK is the ratio Th / K torium divided by potasium.
+    """
+    return (silt -25.12) / 2.03
+
+def petersenclay(clay):
+    return (clay - 6.67) /4.6
+
+def petersencec(cec):
+    return (cec - 3.28) / 3.3
+
+def petersenph(pH):
+    return (pH - 7.59) / 0.15
+
+def petersenoc(oc):
+    return (oc-0.71) /0.15
+
+
 #################################### # # # OUR OWN PTFs PROPOSES  # # # ########################################
 
 
@@ -2165,3 +2249,18 @@ def prop16(clay_cont):
     cec = 4.18 + 0.62*clay_cont                # Fig 5, Shah & Singh 2005 [meq/100g]
     m   = 1.6 + 0.1953*cec**0.5                # Grunzel 1994 as described in Shah & Singh 2005. Original expression: 1.6+0.1953*cec**0.5  
     return m
+
+############## Utils 
+def RMSE(predictions, targets):
+    """
+    Compute the Root Mean Square Error.
+
+    Parameters:
+    - predictions: array-like, predicted values
+    - targets: array-like, true values
+
+    Returns:
+    - RMSE value
+    """
+    differences = np.array(predictions) - np.array(targets)
+    return np.sqrt(np.mean(differences**2))
