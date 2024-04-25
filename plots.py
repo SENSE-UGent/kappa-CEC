@@ -722,7 +722,7 @@ def plot_3d(df, x, y, z, X, Y, Z, elev=30, azim=30):
     plt.show()
 
 
-def bars_plot(feature_sets, test_errors_summary, train_errors_summary, file_name):
+def bars_plot(feature_sets, test_errors_summary, train_errors_summary, target_name):
     # Ensure the output folder exists, create it if it doesn't
     output_folder = 'figures_output'
     if not os.path.exists(output_folder):
@@ -736,14 +736,14 @@ def bars_plot(feature_sets, test_errors_summary, train_errors_summary, file_name
     rects2 = ax.bar(x + width/2, train_errors_summary, width, color = 'blue', label='Train')
 
     ax.axhline(0, color='grey', linewidth=0.8)
-    ax.set_ylabel('Scores')
+    ax.set_ylabel(target_name+' R2 scores')
     ax.set_xticks(range(len(test_errors_summary)), feature_sets, rotation = 15)
     ax.set_ylim(0, 1)
     ax.legend()
     fig.tight_layout()
 
     # Full file path
-    full_file_path = os.path.join(output_folder, file_name)
+    full_file_path = os.path.join(output_folder, 'Bar_plot_'+target_name)
 
     # Save and show the figure
     plt.savefig(full_file_path, dpi=300, bbox_inches='tight')
