@@ -2,6 +2,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from sklearn.metrics import r2_score
+
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+import plotly.graph_objects as go
 
 def plot1(fig1, ax1, ax2, ax3, ax4, ax5, ax6):
     fig1.tight_layout()
@@ -748,3 +753,73 @@ def bars_plot(feature_sets, test_errors_summary, train_errors_summary, target_na
     # Save and show the figure
     plt.savefig(full_file_path, dpi=300, bbox_inches='tight')
     plt.show()
+
+
+def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
+    x = df[x_cols]
+    y = df[y_col]
+    
+    # Generate polynomial features
+    poly = PolynomialFeatures(degree)
+    x_poly = poly.fit_transform(x)
+    
+    # Fit a linear model
+    model = LinearRegression()
+    model.fit(x_poly, y)
+    
+    if len(x_cols) == 1:  # If there's only one predictor
+        x_plot = np.linspace(x[x_cols[0]].min(), x[x_cols[0]].max(), 300).reshape(-1, 1)
+        x_plot_poly = poly.transform(x_plot)
+        y_plot = model.predict(x_plot_poly)
+        y_plot = np.maximum(0, y_plot)  # Ensure y_plot is non-negative
+        
+        fig = go.Figure(data=[go.Scatter(x=x[x_cols[0]], y=y, mode='markers', name='Data points'),
+                              go.Scatter(x=x_plot[:, 0], y=y_plot, mode='lines', name=f'Polynomial fit degree {degree}')])
+        fig.update_layout(title='Polynomial Fit', xaxis_title=x_cols[0], yaxis_title=y_col, yaxis=dict(range=[0, max(y_plot)]))
+        fig.show()
+        
+    elif len(x_cols) == 2:  # If there are two predictors
+        # Generate grid for plots
+        x0_range = np.linspace(x[x_cols[0]].min(), x[x_cols[0]].max(), 50)
+        x1_range = np.linspace(x[x_cols[1]].min(), x[x_cols[1]].max(), 50)
+        x0_grid, x1_grid = np.meshgrid(x0_range, x1_range)
+        x_grid = np.c_[x0_grid.ravel(), x1_grid.ravel()]
+        
+        # Predict y values on grid
+        x_grid_poly = poly.transform(x_grid)
+        y_grid = model.predict(x_grid_poly).reshape(x0_grid.shape)
+        y_grid = np.maximum(0, y_grid)  # Ensure y_grid is non-negative
+
+        # Calculate R² score
+        y_pred = model.predict(x_poly)
+        r2 = r2_score(y, y_pred)
+        
+        # 3D surface plot
+        fig = go.Figure(data=[go.Scatter3d(x=x[x_cols[0]], y=x[x_cols[1]], z=y, mode='markers', marker=dict(size=5), name='Data points'),
+                              go.Surface(x=x0_range, y=x1_range, z=y_grid, name='Polynomial Surface')])
+        fig.update_layout(title=f'3D Polynomial Fit (R² = {r2:.2f})', scene=dict(xaxis_title=x_cols[0], yaxis_title=x_cols[1], zaxis_title=y_col))
+        fig.show()
+        
+        # 2D plots for each predictor
+        fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+        
+        for i, col in enumerate(x_cols):
+            x_plot = np.linspace(x[col].min(), x[col].max(), 300)
+            x_plot_2d = np.column_stack([x_plot if i == j else np.full_like(x_plot, x[x_cols[j]].mean()) for j in range(2)])
+            x_plot_poly = poly.transform(x_plot_2d)
+            y_plot = model.predict(x_plot_poly)
+            
+            for start_str, (color, marker) in mapping.items():
+                mask = df['SAMPLE'].str.startswith(start_str)
+                filtered_df = df[mask]
+                if not filtered_df.empty:  # Ensure there are points to plot and fit
+                    axes[i].scatter(filtered_df[col], filtered_df[y_col], s=ss, linewidth=lw, c=color, marker=marker, label=f"{start_str} Site")
+
+            axes[i].plot(x_plot, y_plot, color='red', label=f'Polynomial fit degree {degree}')
+            axes[i].set_xlabel(col)
+            axes[i].set_ylabel(y_col)
+            axes[i].set_ylim(bottom=0)  # Ensure y-axis starts from 0
+            axes[i].legend()
+            axes[i].grid(True)
+        
+        plt.show()
