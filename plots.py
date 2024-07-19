@@ -3,10 +3,234 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from sklearn.metrics import r2_score
+import seaborn as sns
 
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 import plotly.graph_objects as go
+from scipy.stats import pearsonr
+
+def plot_data2(df, axis, x_col, y_col, mapping, include_label=False, aa=0.7, ss=60, lw=0, label_fontsize=10, legend_fontsize=10):
+    corr = round(np.corrcoef(x_col, y_col)[0][1], 2)
+    for start_str, (color, marker) in mapping.items():
+        mask = df['SAMPLE'].str.startswith(start_str)
+        label = f"{start_str} Site" if include_label else None
+        axis.scatter(x_col[mask], y_col[mask], alpha=aa, s=ss, linewidth=lw, c=color, marker=marker, label=label)
+    # Apply logarithmic scale to the y-axis
+    #axis.set_xscale('log')
+
+    axis.text(0, 0.98, s=f'Corr = {corr}', fontsize=label_fontsize, 
+              verticalalignment='top', horizontalalignment='left', 
+              transform=axis.transAxes)
+    if include_label:
+        axis.legend(fontsize=legend_fontsize)
+        
+
+def create_and_save_plots2(df, target_var, pred1, pred2):
+    # Ensure the output folder exists, create it if it doesn't
+    output_folder = 'figures_output'
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    # Create subplots with shared x-axes within each column
+    fig, axes = plt.subplots(3, 2, figsize=(14, 10), sharey=True, sharex='col')
+    axes = axes.flatten()  # Flatten to easily iterate over
+
+    # Define your conditions for plotting
+    conditions = [
+        (df[pred1], df[target_var], 0, max(df[pred1])),  
+        (df[pred2], df[target_var], 0, max(df[pred2])),  
+        (df[pred1][df['Archaeology'] == 1], df[target_var][df['Archaeology'] == 1], 0, max(df[pred1]), True),  
+        (df[pred2][df['Archaeology'] == 1], df[target_var][df['Archaeology'] == 1], 0, max(df[pred2])),
+        (df[pred1][df['Archaeology'] == 0], df[target_var][df['Archaeology'] == 0], 0, max(df[pred1])),
+        (df[pred2][df['Archaeology'] == 0], df[target_var][df['Archaeology'] == 0], 0, max(df[pred2])),
+    ]
+    # Loop through conditions and plot
+    for i, (ax, (x, y, xlim_lower, xlim_upper, *include_label)) in enumerate(zip(axes, conditions)):
+        plot_data2(ax, x, y, include_label=bool(include_label))
+        ax.set_xlim(xlim_lower, xlim_upper)  # Set x-axis limits
+        ax.grid(True)  # Enable the grid
+        ax.tick_params(axis='y', labelsize=12) 
+        ax.tick_params(axis='x', labelsize=12) 
+        # Set y-axis label for the first and fourth plot (left column)
+        if i == 0 or i == 2 or i == 4:
+            ax.set_ylabel(f'{target_var} [-]', fontsize=16)
+
+    # Set legend for the third subplot (index 2)
+    axes[2].legend(loc='upper right', fontsize=10)
+    axes[4].set_xlabel(pred1, fontsize=16)  # Set x-axis label
+    axes[5].set_xlabel(pred2, fontsize=16)  # Set x-axis label
+
+    plt.tight_layout(pad=1.0)  # Adjust layout
+
+    # Full file path
+    file_name = target_var + pred1 + pred2 + '.png'
+    full_file_path = os.path.join(output_folder, file_name)
+
+    # Save and show the figure
+    plt.savefig(full_file_path, dpi=300, bbox_inches='tight')
+    plt.show()
+
+
+def plot_data(df, axis, x_col, y_col, mapping, include_label=False, aa=0.7, ss=60, lw=0, label_fontsize=10, legend_fontsize=10):
+    corr = round(np.corrcoef(x_col, y_col)[0][1], 2)
+    for start_str, (color, marker) in mapping.items():
+        mask = df['SAMPLE'].str.startswith(start_str)
+        label = f"{start_str} Site" if include_label else None
+        axis.scatter(x_col[mask], y_col[mask], alpha=aa, s=ss, linewidth=lw, c=color, marker=marker, label=label)
+    # Apply logarithmic scale to the y-axis
+
+    axis.set_yscale('log')
+    axis.text(0, 0.98, s=f'Corr = {corr}', fontsize=label_fontsize, 
+              verticalalignment='top', horizontalalignment='left', 
+              transform=axis.transAxes)
+    if include_label:
+        axis.legend(fontsize=legend_fontsize)
+        
+
+def create_and_save_plots(df, target_var, pred1, pred2):
+    # Ensure the output folder exists, create it if it doesn't
+    output_folder = 'figures_output'
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    # Create subplots with shared x-axes within each column
+    fig, axes = plt.subplots(3, 2, figsize=(14, 10), sharey=True, sharex='col')
+    axes = axes.flatten()  # Flatten to easily iterate over
+
+    # Define your conditions for plotting
+    conditions = [
+        (df[pred1], df[target_var], 0, 80),  
+        (df[pred2], df[target_var], 0, 40),  
+        (df[pred1][df['Archaeology'] == 1], df[target_var][df['Archaeology'] == 1], 0, 80, True),  
+        (df[pred2][df['Archaeology'] == 1], df[target_var][df['Archaeology'] == 1], 0, 40),
+        (df[pred1][df['Archaeology'] == 0], df[target_var][df['Archaeology'] == 0], 0, 80),
+        (df[pred2][df['Archaeology'] == 0], df[target_var][df['Archaeology'] == 0], 0, 40),
+    ]
+    # Loop through conditions and plot
+    for i, (ax, (x, y, xlim_lower, xlim_upper, *include_label)) in enumerate(zip(axes, conditions)):
+        plot_data(ax, x, y, include_label=bool(include_label))
+        ax.set_xlim(xlim_lower, xlim_upper)  # Set x-axis limits
+        ax.grid(True)  # Enable the grid
+        ax.tick_params(axis='y', labelsize=12) 
+        ax.tick_params(axis='x', labelsize=12) 
+        # Set y-axis label for the first and fourth plot (left column)
+        if i == 0 or i == 2 or i == 4:
+            ax.set_ylabel(f'{target_var} [-]', fontsize=16)
+
+    # Set legend for the third subplot (index 2)
+    axes[2].legend(loc='upper right', fontsize=10)
+    axes[4].set_xlabel(pred1, fontsize=16)  # Set x-axis label
+    axes[5].set_xlabel(pred2, fontsize=16)  # Set x-axis label
+
+    plt.tight_layout(pad=1.0)  # Adjust layout
+
+    # Full file path
+    file_name = target_var + pred1 + pred2 + '.png'
+    full_file_path = os.path.join(output_folder, file_name)
+
+    # Save and show the figure
+    plt.savefig(full_file_path, dpi=300, bbox_inches='tight')
+    plt.show()
+
+
+def plot_data1(axis, df, x_col_name, y_col_name, mapping, include_label=False, aa=0.7, ss=60, lw=0, label_fontsize=10, legend_fontsize=10):
+    slopes = []
+    intercepts = []
+    avg_xlf_ips = []
+
+    for start_str, (color, marker) in mapping.items():
+        mask = df['SAMPLE'].str.startswith(start_str)
+        filtered_df = df[mask]
+
+        if not filtered_df.empty:  # Ensure there are points to plot and fit
+            # Scatter plot
+            axis.scatter(filtered_df[x_col_name], filtered_df[y_col_name], s=ss, linewidth=lw, c=color, marker=marker, label=f"{start_str} Site" if include_label else None)
+            
+            # Linear regression for individual sites
+            #print('filtered_df[x_col_name]', filtered_df[x_col_name])
+            #print('yfiltered_df[y_col_name]', filtered_df[y_col_name])
+            
+            slope, intercept = np.polyfit(filtered_df[x_col_name], filtered_df[y_col_name], 1)
+            x_fit = np.linspace(filtered_df[x_col_name].min(), filtered_df[x_col_name].max(), 100)
+            y_fit = slope * x_fit + intercept
+            axis.plot(x_fit, y_fit, color=color, linestyle='-', linewidth=2, alpha=0.5)
+            
+            # Save the slope, intercept, and average Xlf_IP
+            slopes.append(slope)
+            intercepts.append(intercept)
+            avg_xlf_ips.append(filtered_df['Xlf_IP'].mean())
+            
+            # Calculate and display R^2 score for individual sites
+            y_pred = slope * filtered_df[x_col_name] + intercept
+            r2 = r2_score(filtered_df[y_col_name], y_pred)
+            axis.text(x_fit[-1], y_fit[-1], f"$R^2={r2:.2f}$", color=color, fontsize=12, ha='left', va='center')
+
+    # Global linear regression for all points in the current subplot
+    global_slope, global_intercept = np.polyfit(df[x_col_name], df[y_col_name], 1)
+    x_fit_global = np.linspace(df[x_col_name].min(), df[x_col_name].max(), 100)
+    y_fit_global = global_slope * x_fit_global + global_intercept
+    axis.plot(x_fit_global, y_fit_global, color='black', linestyle='-', linewidth=3)
+
+    # Calculate and display global R^2 score
+    y_pred_global = global_slope * df[x_col_name] + global_intercept
+    r2_global = r2_score(df[y_col_name], y_pred_global)
+    axis.text(x_fit_global[-1], y_fit_global[-1], f"$R^2={r2_global:.2f}$", color='black', fontsize=12, ha='left', va='center')
+
+    if include_label:
+        axis.legend(fontsize=legend_fontsize)
+    
+    return slopes, intercepts, avg_xlf_ips
+
+
+# Function to plot data with linear regression and display R^2 score
+def plot_data2(axis, df, x_col_name, y_col_name, mapping, include_label=False, aa=0.7, ss=60, lw=0, label_fontsize=10, legend_fontsize=10):
+    slopes = []
+    intercepts = []
+    avg_xlf_ips = []
+    std_devs = []
+    r2_diffs = []
+    
+    for start_str, (color, marker) in mapping.items():
+        mask = df['SAMPLE'].str.startswith(start_str)
+        label = f"{start_str} Site" if include_label else None
+        
+        # Scatter plot
+        axis.scatter(df[x_col_name][mask], df[y_col_name][mask], alpha=aa, s=ss, linewidth=lw, c=color, marker=marker, label=label)
+        
+        # Simple linear regression
+        if mask.sum() > 0:  # Ensure there are points to fit
+            slope, intercept = np.polyfit(df[x_col_name][mask], df[y_col_name][mask], 1)
+            x_fit = np.linspace(df[x_col_name][mask].min(), df[x_col_name][mask].max(), 100)
+            y_fit = slope * x_fit + intercept
+            axis.plot(x_fit, y_fit, color=color, linestyle='-', linewidth=2)
+            
+            # Calculate and display simple linear regression R^2 score
+            y_pred_simple = slope * df[x_col_name][mask] + intercept
+            r2_simple = r2_score(df[y_col_name][mask], y_pred_simple)
+            axis.text(x_fit[-1], y_fit[-1], f"$R^2={r2_simple:.2f}$", color=color, fontsize=12)
+            
+            # Multiple linear regression with Xlf_IP as an additional feature
+            X = df[[x_col_name, 'Xlf_IP']][mask]
+            y = df[y_col_name][mask]
+            model = LinearRegression().fit(X, y)
+            y_pred_multi = model.predict(X)
+            r2_multi = r2_score(y, y_pred_multi)
+            
+            # Display multiple linear regression R^2 score
+            #axis.text(x_fit[-1], y_fit[-1] * 0.9, f"$R^2 Xlf={r2_multi:.2f}$", color=color, fontsize=12)
+            
+            # Save standard deviation and R^2 difference
+            std_dev = df[y_col_name][mask].std()
+            std_devs.append(std_dev)
+            r2_diff = r2_multi - r2_simple
+            r2_diffs.append(r2_diff)
+    
+    if include_label:
+        axis.legend(fontsize=legend_fontsize)
+    
+    return std_devs, r2_diffs
+
 
 def plot1(fig1, ax1, ax2, ax3, ax4, ax5, ax6):
     fig1.tight_layout()
@@ -823,3 +1047,72 @@ def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
             axes[i].grid(True)
         
         plt.show()
+
+
+def res_plot(df, var1, var2, cov):# Create a figure with 3 subplots
+    fig, axs = plt.subplots(3, 1, figsize=(10, 18))
+
+    # First plot: var1 vs Fe with linear regression and residuals
+    sns.regplot(x=cov, y=var1, data=df, ax=axs[0])
+    axs[0].set_title(var1+' vs '+cov+' with Linear Regression')
+
+    # Calculate residuals for var1 vs Cov
+    X_var1 = df[var1].values.reshape(-1, 1)
+    y_cov = df[cov].values
+    reg_var1 = LinearRegression().fit(X_var1, y_cov)
+    y_pred_var1 = reg_var1.predict(X_var1)
+    residuals_var1 = y_cov - y_pred_var1
+
+    # Second plot: CEC vs Fe with linear regression and residuals
+    sns.regplot(x=var2, y=cov, data=df, ax=axs[1])
+    axs[1].set_title(var2+' vs '+cov+' with Linear Regression')
+
+    # Calculate residuals for var2 vs Fe
+    X_var2 = df[var2].values.reshape(-1, 1)
+    y_cov = df[cov].values
+    reg_var2 = LinearRegression().fit(X_var2, y_cov)
+    y_pred_var2 = reg_var2.predict(X_var2)
+    residuals_var2 = y_cov - y_pred_var2
+
+    # Third plot: Residuals of both linear regressions
+    corr1 = np.corrcoef(residuals_var2, residuals_var1)
+    axs[2].scatter(residuals_var1, residuals_var2, label='Residuals of '+var1+' vs '+cov+str(corr1), color='blue')
+    axs[2].axhline(y=0, color='black', linestyle='--')
+    axs[2].set_title('Residuals of Linear Regressions')
+    axs[2].set_xlabel('Res '+var1)
+    axs[2].set_ylabel('Res '+var2)
+    axs[2].legend()
+
+    # Adjust layout
+    plt.tight_layout()
+    plt.show()
+
+
+def partial_correlation1(df, x_col, y_col, control_col):
+    """
+    Calculate the partial correlation between two columns of a dataframe controlling for a third column.
+    """
+    df = df[[x_col, y_col, control_col]].dropna()
+
+    def get_residuals(col):
+        slope, intercept = np.polyfit(df[control_col], df[col], 1)
+        residuals = df[col] - (slope * df[control_col] + intercept)
+        return residuals
+
+    x_residuals = get_residuals(x_col)
+    y_residuals = get_residuals(y_col)
+
+    partial_corr, _ = pearsonr(x_residuals, y_residuals)
+
+    # Plotting for visualization
+    fig, axs = plt.subplots(1, 3, figsize=(18, 6))
+    sns.regplot(x=df[x_col], y=df[control_col], ax=axs[0])
+    axs[0].set_title(f'{x_col} vs {control_col}')
+    sns.regplot(x=df[y_col], y=df[control_col], ax=axs[1])
+    axs[1].set_title(f'{y_col} vs {control_col}')
+    sns.scatterplot(x=x_residuals, y=y_residuals, ax=axs[2])
+    axs[2].set_title(f'Residuals: {x_col} vs {y_col}\nPartial Corr: {partial_corr:.2f}')
+    plt.tight_layout()
+    plt.show()
+
+    return partial_corr
