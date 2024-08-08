@@ -4,11 +4,42 @@ import matplotlib.pyplot as plt
 import os
 from sklearn.metrics import r2_score
 import seaborn as sns
+import statsmodels.api as sm
 
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 import plotly.graph_objects as go
 from scipy.stats import pearsonr
+
+
+def plot_sing(df, var1, var2, mapping, onexone_line=False, log_scale=False):
+    for start_str, (color, marker) in mapping.items():
+        mask = df['SAMPLE'].str.startswith(start_str)
+        filtered_df = df[mask]
+        plt.scatter(filtered_df[var1], filtered_df[var2], color=color, marker=marker, label=start_str)
+        plt.grid(True)
+
+    r2 = r2_score(df[var1], df[var2])
+    #plt.text(e-5, 0.2, f'R^2={r2:.2f}')
+
+    # Adding a 1:1 line
+    if onexone_line:
+        x = np.linspace(min(df[var1]), max(df[var1]), 100)
+        plt.plot(x, x, color='black', linestyle='--', label=f'R^2={r2:.2f}' )
+
+    # Setting both axes to logarithmic scale
+    if log_scale:
+        plt.xscale('log')
+        plt.yscale('log')    
+        
+    plt.xlabel(var1)
+    plt.ylabel(var2)
+    plt.legend(fontsize='small')  # Adjusting the font size of the legend
+
+    folder_path = 'figures_output/'
+    filename = var1+var2+str(log_scale)+".png"
+    plt.savefig(folder_path + filename)
+
 
 def plot_data2(df, axis, x_col, y_col, mapping, include_label=False, aa=0.7, ss=60, lw=0, label_fontsize=10, legend_fontsize=10):
     corr = round(np.corrcoef(x_col, y_col)[0][1], 2)
@@ -26,7 +57,7 @@ def plot_data2(df, axis, x_col, y_col, mapping, include_label=False, aa=0.7, ss=
         axis.legend(fontsize=legend_fontsize)
         
 
-def create_and_save_plots2(df, target_var, pred1, pred2):
+def create_and_save_plots2(df, target_var, pred1, pred2, mapping):
     # Ensure the output folder exists, create it if it doesn't
     output_folder = 'figures_output'
     if not os.path.exists(output_folder):
@@ -47,7 +78,7 @@ def create_and_save_plots2(df, target_var, pred1, pred2):
     ]
     # Loop through conditions and plot
     for i, (ax, (x, y, xlim_lower, xlim_upper, *include_label)) in enumerate(zip(axes, conditions)):
-        plot_data2(ax, x, y, include_label=bool(include_label))
+        plot_data2(df, ax, x, y, mapping, include_label=bool(include_label))
         ax.set_xlim(xlim_lower, xlim_upper)  # Set x-axis limits
         ax.grid(True)  # Enable the grid
         ax.tick_params(axis='y', labelsize=12) 
@@ -990,7 +1021,10 @@ def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
     # Fit a linear model
     model = LinearRegression()
     model.fit(x_poly, y)
-    
+    print('model.coef_', model.coef_)
+    print('model.intercept_', model.intercept_)
+
+
     if len(x_cols) == 1:  # If there's only one predictor
         x_plot = np.linspace(x[x_cols[0]].min(), x[x_cols[0]].max(), 300).reshape(-1, 1)
         x_plot_poly = poly.transform(x_plot)
@@ -1039,12 +1073,17 @@ def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
                 if not filtered_df.empty:  # Ensure there are points to plot and fit
                     axes[i].scatter(filtered_df[col], filtered_df[y_col], s=ss, linewidth=lw, c=color, marker=marker, label=f"{start_str} Site")
 
+
             axes[i].plot(x_plot, y_plot, color='red', label=f'Polynomial fit degree {degree}')
             axes[i].set_xlabel(col)
             axes[i].set_ylabel(y_col)
             axes[i].set_ylim(bottom=0)  # Ensure y-axis starts from 0
             axes[i].legend()
             axes[i].grid(True)
+
+            #if x[i] == 'MS_field':
+            #    axes[i].set_yscale('log')
+
         
         plt.show()
 
@@ -1088,30 +1127,49 @@ def res_plot(df, var1, var2, cov):# Create a figure with 3 subplots
     plt.show()
 
 
-def partial_correlation1(df, x_col, y_col, control_col):
+def partial_correlation(df, x_col, y_col, control_cols):
     """
-    Calculate the partial correlation between two columns of a dataframe controlling for a third column.
+    Calculate the partial correlation between two columns of a dataframe controlling for two other columns.
+    
+    Args:
+    df (DataFrame): The input dataframe.
+    x_col (str): The name of the first variable column.
+    y_col (str): The name of the second variable column.
+    control_cols (list of str): The names of the control variable columns.
+    
+    Returns:
+    float: The partial correlation coefficient.
     """
-    df = df[[x_col, y_col, control_col]].dropna()
+    # Ensure control_cols is a list even if a single column name is provided
+    if isinstance(control_cols, str):
+        control_cols = [control_cols]
 
+    # Drop missing values from the columns of interest
+    df = df[[x_col, y_col] + control_cols].dropna()
+
+    # Function to get residuals from a regression on control variables
     def get_residuals(col):
-        slope, intercept = np.polyfit(df[control_col], df[col], 1)
-        residuals = df[col] - (slope * df[control_col] + intercept)
+        X = df[control_cols]
+        X = sm.add_constant(X)  # Adds a constant term to the predictor
+        y = df[col]
+        model = sm.OLS(y, X).fit()
+        residuals = model.resid
         return residuals
 
+    # Calculate residuals for both variables of interest
     x_residuals = get_residuals(x_col)
     y_residuals = get_residuals(y_col)
 
+    # Calculate the correlation of the residuals
     partial_corr, _ = pearsonr(x_residuals, y_residuals)
 
     # Plotting for visualization
     fig, axs = plt.subplots(1, 3, figsize=(18, 6))
-    sns.regplot(x=df[x_col], y=df[control_col], ax=axs[0])
-    axs[0].set_title(f'{x_col} vs {control_col}')
-    sns.regplot(x=df[y_col], y=df[control_col], ax=axs[1])
-    axs[1].set_title(f'{y_col} vs {control_col}')
-    sns.scatterplot(x=x_residuals, y=y_residuals, ax=axs[2])
-    axs[2].set_title(f'Residuals: {x_col} vs {y_col}\nPartial Corr: {partial_corr:.2f}')
+    for i, control_col in enumerate(control_cols):
+        sns.regplot(x=df[x_col], y=df[control_col], ax=axs[i])
+        axs[i].set_title(f'{x_col} vs {control_col}')
+    sns.scatterplot(x=x_residuals, y=y_residuals, ax=axs[-1])
+    axs[-1].set_title(f'Residuals: {x_col} vs {y_col}\nPartial Corr: {partial_corr:.2f}')
     plt.tight_layout()
     plt.show()
 

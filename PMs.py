@@ -2249,18 +2249,3 @@ def prop16(clay_cont):
     cec = 4.18 + 0.62*clay_cont                # Fig 5, Shah & Singh 2005 [meq/100g]
     m   = 1.6 + 0.1953*cec**0.5                # Grunzel 1994 as described in Shah & Singh 2005. Original expression: 1.6+0.1953*cec**0.5  
     return m
-
-############## Utils 
-def RMSE(predictions, targets):
-    """
-    Compute the Root Mean Square Error.
-
-    Parameters:
-    - predictions: array-like, predicted values
-    - targets: array-like, true values
-
-    Returns:
-    - RMSE value
-    """
-    differences = np.array(predictions) - np.array(targets)
-    return np.sqrt(np.mean(differences**2))
