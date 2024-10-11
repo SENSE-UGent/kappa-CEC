@@ -13,31 +13,42 @@ from scipy.stats import pearsonr
 
 
 def plot_sing(df, var1, var2, mapping, onexone_line=False, log_scale=False):
+    # Drop rows where either var1 or var2 has NaN values
+    df_clean = df.dropna(subset=[var1, var2])
+
     for start_str, (color, marker) in mapping.items():
-        mask = df['SAMPLE'].str.startswith(start_str)
-        filtered_df = df[mask]
+        mask = df_clean['SAMPLE'].str.startswith(start_str) & df_clean[var1].notna() & df_clean[var2].notna()
+        filtered_df = df_clean[mask]
         plt.scatter(filtered_df[var1], filtered_df[var2], color=color, marker=marker, label=start_str)
         plt.grid(True)
 
-    r2 = r2_score(df[var1], df[var2])
-    #plt.text(e-5, 0.2, f'R^2={r2:.2f}')
+    # Recalculate the R^2 score with the clean data
+    if df_clean[var1].size > 0 and df_clean[var2].size > 0:
+        r2 = r2_score(df_clean[var1], df_clean[var2])
+    else:
+        r2 = None
 
-    # Adding a 1:1 line
-    if onexone_line:
-        x = np.linspace(min(df[var1]), max(df[var1]), 100)
-        plt.plot(x, x, color='black', linestyle='--', label=f'R^2={r2:.2f}' )
-
-    # Setting both axes to logarithmic scale
+    # Optionally add a 1:1 line with R^2 in the label if it exists
+    if onexone_line and r2 is not None:
+        x = np.linspace(min(df_clean[var1]), max(df_clean[var1]), 100)
+        plt.plot(x, x, 'k--', label=f'R^2={r2:.2f}')
+    
+    # Set log scale if requested
     if log_scale:
         plt.xscale('log')
-        plt.yscale('log')    
-        
+        plt.yscale('log')
+
     plt.xlabel(var1)
     plt.ylabel(var2)
-    plt.legend(fontsize='small')  # Adjusting the font size of the legend
+    plt.legend(fontsize='small')
 
+    if not log_scale and var2=='Ms':
+        plt.ylim(0, 0.05)
+
+    # Ensure the output directory exists
     folder_path = 'figures_output/'
-    filename = var1+var2+str(log_scale)+".png"
+    os.makedirs(folder_path, exist_ok=True)
+    filename = f"{var1}_{var2}_{'log' if log_scale else 'linear'}.png"
     plt.savefig(folder_path + filename)
 
 
@@ -190,7 +201,7 @@ def plot_data1(axis, df, x_col_name, y_col_name, mapping, include_label=False, a
             # Save the slope, intercept, and average Xlf_IP
             slopes.append(slope)
             intercepts.append(intercept)
-            avg_xlf_ips.append(filtered_df['Xlf_IP'].mean())
+            avg_xlf_ips.append(filtered_df['Klf'].mean())
             
             # Calculate and display R^2 score for individual sites
             y_pred = slope * filtered_df[x_col_name] + intercept
@@ -242,7 +253,7 @@ def plot_data2(axis, df, x_col_name, y_col_name, mapping, include_label=False, a
             axis.text(x_fit[-1], y_fit[-1], f"$R^2={r2_simple:.2f}$", color=color, fontsize=12)
             
             # Multiple linear regression with Xlf_IP as an additional feature
-            X = df[[x_col_name, 'Xlf_IP']][mask]
+            X = df[[x_col_name, 'Klf']][mask]
             y = df[y_col_name][mask]
             model = LinearRegression().fit(X, y)
             y_pred_multi = model.predict(X)
@@ -270,7 +281,7 @@ def plot1(fig1, ax1, ax2, ax3, ax4, ax5, ax6):
     ax1.tick_params(axis='y', labelsize=12) 
     ax1.tick_params(axis='x', labelsize=12) 
     #ax1.set_xlabel('Clay [%]', fontsize = 16) 
-    ax1.set_ylabel('Klf_IP [m-3] all', fontsize = 16) 
+    ax1.set_ylabel('Klf [m-3] all', fontsize = 16) 
     ax1.grid(True) 
     ax1.set_xlim(0, 80) 
 
@@ -286,7 +297,7 @@ def plot1(fig1, ax1, ax2, ax3, ax4, ax5, ax6):
     ax3.tick_params(axis='y', labelsize=12) 
     ax3.tick_params(axis='x', labelsize=12) 
     #ax3.set_xlabel('Clay [%]', fontsize = 16) 
-    ax3.set_ylabel('Klf_IP [m-3] arch', fontsize = 16) 
+    ax3.set_ylabel('Klf [m-3] arch', fontsize = 16) 
     ax3.grid(True) 
     ax3.set_xlim(0, 80) 
 
@@ -302,7 +313,7 @@ def plot1(fig1, ax1, ax2, ax3, ax4, ax5, ax6):
     ax5.tick_params(axis='y', labelsize=12) 
     ax5.tick_params(axis='x', labelsize=12) 
     ax5.set_xlabel('Clay [%]', fontsize = 16) 
-    ax5.set_ylabel('Klf_IP [m-3] no arch', fontsize = 16) 
+    ax5.set_ylabel('Klf [m-3] no arch', fontsize = 16) 
     ax5.grid(True) 
     ax5.set_xlim(0, 80) 
 
@@ -1024,7 +1035,6 @@ def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
     print('model.coef_', model.coef_)
     print('model.intercept_', model.intercept_)
 
-
     if len(x_cols) == 1:  # If there's only one predictor
         x_plot = np.linspace(x[x_cols[0]].min(), x[x_cols[0]].max(), 300).reshape(-1, 1)
         x_plot_poly = poly.transform(x_plot)
@@ -1052,40 +1062,80 @@ def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
         y_pred = model.predict(x_poly)
         r2 = r2_score(y, y_pred)
         
-        # 3D surface plot
-        fig = go.Figure(data=[go.Scatter3d(x=x[x_cols[0]], y=x[x_cols[1]], z=y, mode='markers', marker=dict(size=5), name='Data points'),
-                              go.Surface(x=x0_range, y=x1_range, z=y_grid, name='Polynomial Surface')])
-        fig.update_layout(title=f'3D Polynomial Fit (R² = {r2:.2f})', scene=dict(xaxis_title=x_cols[0], yaxis_title=x_cols[1], zaxis_title=y_col))
+        # Assign color to each point based on mapping
+        colors = []
+        for sample in df['SAMPLE']:
+            for start_str, (color, marker) in mapping.items():
+                if sample.startswith(start_str):
+                    colors.append(color)
+                    break
+            else:
+                colors.append('gray')  # default color if no match
+        
+        # 3D surface plot with transparency and reversed color gradient
+        fig = go.Figure(data=[
+            go.Scatter3d(
+                x=x[x_cols[0]], 
+                y=x[x_cols[1]], 
+                z=y, 
+                mode='markers', 
+                marker=dict(size=5, color=colors), 
+                name='Data points'
+            ),
+            go.Surface(
+                x=x0_range, 
+                y=x1_range, 
+                z=y_grid, 
+                opacity=0.6,  # Adjust transparency here
+                colorscale='Bluered_r',  # Reverse gradient from blue to red (yellow)
+                name='Polynomial Surface'
+            )
+        ])
+        
+        fig.update_layout(
+            title=f'3D Polynomial Fit (R² = {r2:.2f})',
+            scene=dict(
+                xaxis_title=x_cols[0], 
+                yaxis_title=x_cols[1], 
+                zaxis_title=y_col
+            )
+        )
         fig.show()
         
-        # 2D plots for each predictor
-        fig, axes = plt.subplots(1, 2, figsize=(15, 6))
-        
-        for i, col in enumerate(x_cols):
-            x_plot = np.linspace(x[col].min(), x[col].max(), 300)
-            x_plot_2d = np.column_stack([x_plot if i == j else np.full_like(x_plot, x[x_cols[j]].mean()) for j in range(2)])
-            x_plot_poly = poly.transform(x_plot_2d)
-            y_plot = model.predict(x_plot_poly)
-            
-            for start_str, (color, marker) in mapping.items():
-                mask = df['SAMPLE'].str.startswith(start_str)
-                filtered_df = df[mask]
-                if not filtered_df.empty:  # Ensure there are points to plot and fit
-                    axes[i].scatter(filtered_df[col], filtered_df[y_col], s=ss, linewidth=lw, c=color, marker=marker, label=f"{start_str} Site")
+    # Create static images from different perspectives using Matplotlib
+    fig_static, axes = plt.subplots(1, 3, figsize=(18, 6), subplot_kw={'projection': '3d'})
 
+    # Set the color map for the surface plot to be similar to Plotly's color scale
+    cmap = plt.get_cmap('coolwarm')
 
-            axes[i].plot(x_plot, y_plot, color='red', label=f'Polynomial fit degree {degree}')
-            axes[i].set_xlabel(col)
-            axes[i].set_ylabel(y_col)
-            axes[i].set_ylim(bottom=0)  # Ensure y-axis starts from 0
-            axes[i].legend()
-            axes[i].grid(True)
+    # Plot data points and surface for all three perspectives
+    # First perspective (default)
+    axes[0].scatter(x[x_cols[0]], x[x_cols[1]], y, c=colors, s=ss, edgecolor='k')
+    axes[0].plot_surface(x0_grid, x1_grid, y_grid, alpha=0.6, cmap=cmap)
+    axes[0].view_init(elev=15, azim=45)
+    axes[0].set_xlabel(x_cols[0])
+    axes[0].set_ylabel(x_cols[1])
+    axes[0].set_zlabel(y_col)
+    axes[0].set_title(f"3D Polynomial Fit (R² = {r2:.2f})")
 
-            #if x[i] == 'MS_field':
-            #    axes[i].set_yscale('log')
+    # Second perspective (top view)
+    axes[1].scatter(x[x_cols[0]], x[x_cols[1]], y, c=colors, s=ss, edgecolor='k')
+    axes[1].plot_surface(x0_grid, x1_grid, y_grid, alpha=0.6, cmap=cmap)
+    axes[1].view_init(elev=25, azim=135)
+    axes[1].set_xlabel(x_cols[0])
+    axes[1].set_ylabel(x_cols[1])
+    axes[1].set_zlabel(y_col)
 
-        
-        plt.show()
+    # Third perspective (side view)
+    axes[2].scatter(x[x_cols[0]], x[x_cols[1]], y, c=colors, s=ss, edgecolor='k')
+    axes[2].plot_surface(x0_grid, x1_grid, y_grid, alpha=0.6, cmap=cmap)
+    axes[2].view_init(elev=45, azim=225)
+    axes[2].set_xlabel(x_cols[0])
+    axes[2].set_ylabel(x_cols[1])
+    axes[2].set_zlabel(y_col)
+
+    plt.tight_layout()
+    plt.show()
 
 
 def res_plot(df, var1, var2, cov):# Create a figure with 3 subplots
