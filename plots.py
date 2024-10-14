@@ -1,28 +1,16 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import plotly.io as pio
 import os
 import statsmodels.api as sm
-import pingouin as pg
 import seaborn as sns
 import statsmodels.api as sm
-import ipywidgets as widgets
 import plotly.graph_objects as go
-import itertools
 
 from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from scipy.stats import pearsonr
-from IPython.display import display
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-from scipy import stats
-from sklearn.metrics import accuracy_score
-from statistics import mode
-from matplotlib.pyplot import figure
-from sklearn.model_selection import train_test_split
-from scipy.stats import spearmanr
 
 
 # Define a function to plot multiple subplots with scatter and regression lines

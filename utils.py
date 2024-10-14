@@ -6,6 +6,16 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import PolynomialFeatures
 
 
+def logsdon(fc, rperm, iperm):
+    """
+    Equation 8 of Logsdon 2010
+    """
+    pi = 3.141592653589793
+    e_0 = 8.8541878028e-12
+    arc = np.arctan(2.0*iperm/rperm)
+    return arc*rperm*pi*fc*e_0
+
+
 def RMSE(predictions, targets):
     """
     Compute the Root Mean Square Error (RMSE) between predicted and actual target values.
