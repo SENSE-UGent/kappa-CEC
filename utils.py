@@ -8,31 +8,32 @@ from sklearn.preprocessing import PolynomialFeatures
 
 def RMSE(predictions, targets):
     """
-    Compute the Root Mean Square Error.
+    Compute the Root Mean Square Error (RMSE) between predicted and actual target values.
 
     Parameters:
-    - predictions: array-like, predicted values
-    - targets: array-like, true values
+    - predictions: array-like, predicted values.
+    - targets: array-like, true target values.
 
     Returns:
-    - RMSE value
+    - float: The RMSE value which indicates the standard deviation of the prediction errors.
     """
     differences = np.array(predictions) - np.array(targets)
     return np.sqrt(np.mean(differences**2))
 
 
-def remove_outliers(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 3 * IQR
-    upper_bound = Q3 + 3 * IQR
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    return filtered_df
-
-
 # Function to perform linear regression and print results
 def perform_regression_and_select_best(feature_sets, target, df):
+    """
+    Perform linear regression for multiple feature sets and select the best performing model based on R² score.
+
+    Parameters:
+    - feature_sets: list of feature sets to be evaluated (each feature set is a list of column names).
+    - target: str, the name of the target variable in the dataframe.
+    - df: DataFrame, the input dataset containing feature columns and the target variable.
+
+    Returns:
+    - tuple: The best performing linear regression model and the corresponding feature set.
+    """
     print('perform_regression_and_select_best:', feature_sets, target)
     best_score = float('-inf')
     best_regressor = None
@@ -63,16 +64,26 @@ def perform_regression_and_select_best(feature_sets, target, df):
     return best_regressor, best_features
 
 
-# Generalize the meshgrid and Z values generation
-def generate_meshgrid_and_Z(reg, df, features, n_points=50):
-    x_range = np.linspace(df[features[0]].min(), df[features[0]].max(), n_points)
-    y_range = np.linspace(df[features[1]].min(), df[features[1]].max(), n_points)
-    X, Y = np.meshgrid(x_range, y_range)
-    Z = reg.coef_[0] * X + reg.coef_[1] * Y + reg.intercept_
-    return X, Y, Z
-
-
 def stochastic_poly(df, feature_columns, Y, n=3, iters=100, round_n=3):
+    """
+    Perform polynomial regression using stochastic sampling for multiple degrees and iterations to find the best model.
+
+    Parameters:
+    - df: DataFrame, the input dataset containing feature columns.
+    - feature_columns: list of str, the feature columns to be used for regression.
+    - Y: array-like, the target variable for regression.
+    - n: int, the maximum polynomial degree to evaluate (default is 3).
+    - iters: int, the number of iterations for stochastic sampling (default is 100).
+    - round_n: int, the number of decimal places to round the final results (default is 3).
+
+    Returns:
+    - tuple: 
+        - best_n: int, the best degree of the polynomial model based on test R² scores.
+        - median R² score for the best polynomial degree on the test data.
+        - median R² score for the best polynomial degree on the train data.
+        - median RMSE for the best polynomial degree on the test data.
+        - median RMSE for the best polynomial degree on the train data.
+    """
     ypred_train_best, ypred_test_best, R2_train_t_best, R2_test_t_best, RMSE_train_t_best, RMSE_test_t_best = [], [], [], [], [], []
     X = df[feature_columns]
 

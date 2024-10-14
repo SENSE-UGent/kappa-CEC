@@ -1,18 +1,147 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import plotly.io as pio
 import os
-from sklearn.metrics import r2_score
+import statsmodels.api as sm
+import pingouin as pg
 import seaborn as sns
 import statsmodels.api as sm
+import ipywidgets as widgets
+import plotly.graph_objects as go
+import itertools
 
+from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
-import plotly.graph_objects as go
 from scipy.stats import pearsonr
+from IPython.display import display
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from scipy import stats
+from sklearn.metrics import accuracy_score
+from statistics import mode
+from matplotlib.pyplot import figure
+from sklearn.model_selection import train_test_split
+from scipy.stats import spearmanr
+
+
+# Define a function to plot multiple subplots with scatter and regression lines
+def plot_multiple_scatter_plots(df, mapping, plot_data_func):
+    """
+    Plots multiple scatter plots with regression lines in a 2x3 subplot layout.
+
+    Args:
+    df (DataFrame): The input dataframe.
+    mapping (dict): Mapping of sample categories to color and marker.
+    plot_data_func (function): Function used to plot data with regression lines.
+
+    Returns:
+    None
+    """
+    # Define the columns for x and y axes
+    x_col_clay = 'Clay'
+    y_col_cec = 'CEC'
+    x_col_Xhf = 'Khf'
+    x_col_fe = 'Fe'
+    x_col_humus = 'Humus'
+
+    # Create subplots
+    fig, axs = plt.subplots(2, 3, figsize=(18, 12))
+
+    # First row of plots using df
+    # Plot scatter and regression lines for Clay vs CEC
+    plot_data_func(axs[0, 0], df, x_col_clay, y_col_cec, mapping, include_label=True)
+    axs[0, 0].set_xlabel('Clay')
+    axs[0, 0].set_ylabel('CEC')
+    axs[0, 0].grid(True)
+
+    # Plot scatter and regression lines for Humus vs CEC
+    plot_data_func(axs[0, 1], df, x_col_humus, y_col_cec, mapping, include_label=False)
+    axs[0, 1].set_xlabel('Humus')
+    axs[0, 1].set_ylabel('CEC')
+    axs[0, 1].grid(True)
+    axs[0, 1].set_yscale('log')
+
+    # Plot scatter and regression lines for Xhf vs CEC
+    plot_data_func(axs[0, 2], df, x_col_Xhf, y_col_cec, mapping, include_label=False)
+    axs[0, 2].set_ylabel('CEC')
+    axs[0, 2].set_xlabel('Xhf')
+    axs[0, 2].grid(True)
+    axs[0, 2].set_yscale('log')
+
+    # Second row of plots using df
+    # Plot scatter and regression lines for Fe vs CEC
+    plot_data_func(axs[1, 0], df, x_col_fe, y_col_cec, mapping, include_label=True)
+    axs[1, 0].set_xlabel('Fe')
+    axs[1, 0].set_ylabel('CEC')
+    axs[1, 0].grid(True)
+
+    # Plot scatter and regression lines for Fe vs Clay
+    plot_data_func(axs[1, 1], df, x_col_fe, x_col_clay, mapping, include_label=False)
+    axs[1, 1].set_xlabel('Fe')
+    axs[1, 1].set_ylabel('Clay')
+    axs[1, 1].grid(True)
+
+    # Plot scatter and regression lines for Fe vs Xhf
+    plot_data_func(axs[1, 2], df, x_col_fe, x_col_Xhf, mapping, include_label=False)
+    axs[1, 2].set_ylabel('Xhf')
+    axs[1, 2].set_xlabel('Fe')
+    axs[1, 2].grid(True)
+    axs[1, 2].set_yscale('log')
+
+    # Adjust layout for better readability
+    plt.tight_layout()
+
+    # Show the plot
+    plt.show()
+
+
+ # Function to plot the horizontal bar chart
+def plot_feature_importance(ax, y_positions, scores, labels, title, color, xlabel="Median R² Test Score", labelsize=14):
+    """
+    Plots a horizontal bar chart for feature importance.
+
+    Args:
+    ax (matplotlib axis): The axis on which to plot.
+    y_positions (array): Positions for the y-axis.
+    scores (array): Feature scores for the bar lengths.
+    labels (list): Labels for the y-axis ticks.
+    title (str): The title of the plot.
+    color (str): Color of the bars.
+    xlabel (str): Label for the x-axis.
+    labelsize (int): Font size for the axis labels.
+
+    Returns:
+    rects (BarContainer): The bar container for the plotted bars.
+    """
+    rects = ax.barh(y_positions, scores, height=0.6, color=color)
+    
+    # Set labels and title
+    ax.set_xlabel(xlabel, fontsize=16)
+    ax.set_title(title, fontsize=18)
+    ax.set_yticks(y_positions)
+    ax.set_yticklabels(labels, fontsize=12)
+    ax.set_xlim(0, 1)
+    ax.tick_params(axis='x', labelsize=labelsize)
+    
+    return rects
 
 
 def plot_sing(df, var1, var2, mapping, onexone_line=False, log_scale=False):
+    """
+    Plots a scatter plot for two variables with optional 1:1 line and logarithmic scale.
+
+    Args:
+    df (DataFrame): The input dataframe.
+    var1 (str): First variable for the x-axis.
+    var2 (str): Second variable for the y-axis.
+    mapping (dict): Mapping of sample categories to color and marker.
+    onexone_line (bool): Whether to plot a 1:1 line.
+    log_scale (bool): Whether to use logarithmic scaling.
+
+    Returns:
+    None
+    """
     # Drop rows where either var1 or var2 has NaN values
     df_clean = df.dropna(subset=[var1, var2])
 
@@ -50,71 +179,28 @@ def plot_sing(df, var1, var2, mapping, onexone_line=False, log_scale=False):
     os.makedirs(folder_path, exist_ok=True)
     filename = f"{var1}_{var2}_{'log' if log_scale else 'linear'}.png"
     plt.savefig(folder_path + filename)
-
-
-def plot_data2(df, axis, x_col, y_col, mapping, include_label=False, aa=0.7, ss=60, lw=0, label_fontsize=10, legend_fontsize=10):
-    corr = round(np.corrcoef(x_col, y_col)[0][1], 2)
-    for start_str, (color, marker) in mapping.items():
-        mask = df['SAMPLE'].str.startswith(start_str)
-        label = f"{start_str} Site" if include_label else None
-        axis.scatter(x_col[mask], y_col[mask], alpha=aa, s=ss, linewidth=lw, c=color, marker=marker, label=label)
-    # Apply logarithmic scale to the y-axis
-    #axis.set_xscale('log')
-
-    axis.text(0, 0.98, s=f'Corr = {corr}', fontsize=label_fontsize, 
-              verticalalignment='top', horizontalalignment='left', 
-              transform=axis.transAxes)
-    if include_label:
-        axis.legend(fontsize=legend_fontsize)
         
 
-def create_and_save_plots2(df, target_var, pred1, pred2, mapping):
-    # Ensure the output folder exists, create it if it doesn't
-    output_folder = 'figures_output'
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-
-    # Create subplots with shared x-axes within each column
-    fig, axes = plt.subplots(3, 2, figsize=(14, 10), sharey=True, sharex='col')
-    axes = axes.flatten()  # Flatten to easily iterate over
-
-    # Define your conditions for plotting
-    conditions = [
-        (df[pred1], df[target_var], 0, max(df[pred1])),  
-        (df[pred2], df[target_var], 0, max(df[pred2])),  
-        (df[pred1][df['Archaeology'] == 1], df[target_var][df['Archaeology'] == 1], 0, max(df[pred1]), True),  
-        (df[pred2][df['Archaeology'] == 1], df[target_var][df['Archaeology'] == 1], 0, max(df[pred2])),
-        (df[pred1][df['Archaeology'] == 0], df[target_var][df['Archaeology'] == 0], 0, max(df[pred1])),
-        (df[pred2][df['Archaeology'] == 0], df[target_var][df['Archaeology'] == 0], 0, max(df[pred2])),
-    ]
-    # Loop through conditions and plot
-    for i, (ax, (x, y, xlim_lower, xlim_upper, *include_label)) in enumerate(zip(axes, conditions)):
-        plot_data2(df, ax, x, y, mapping, include_label=bool(include_label))
-        ax.set_xlim(xlim_lower, xlim_upper)  # Set x-axis limits
-        ax.grid(True)  # Enable the grid
-        ax.tick_params(axis='y', labelsize=12) 
-        ax.tick_params(axis='x', labelsize=12) 
-        # Set y-axis label for the first and fourth plot (left column)
-        if i == 0 or i == 2 or i == 4:
-            ax.set_ylabel(f'{target_var} [-]', fontsize=16)
-
-    # Set legend for the third subplot (index 2)
-    axes[2].legend(loc='upper right', fontsize=10)
-    axes[4].set_xlabel(pred1, fontsize=16)  # Set x-axis label
-    axes[5].set_xlabel(pred2, fontsize=16)  # Set x-axis label
-
-    plt.tight_layout(pad=1.0)  # Adjust layout
-
-    # Full file path
-    file_name = target_var + pred1 + pred2 + '.png'
-    full_file_path = os.path.join(output_folder, file_name)
-
-    # Save and show the figure
-    plt.savefig(full_file_path, dpi=300, bbox_inches='tight')
-    plt.show()
-
-
 def plot_data(df, axis, x_col, y_col, mapping, include_label=False, aa=0.7, ss=60, lw=0, label_fontsize=10, legend_fontsize=10):
+    """
+    Plots scatter data and adds a linear regression line along with the correlation coefficient.
+
+    Args:
+    df (DataFrame): The input dataframe.
+    axis (matplotlib axis): Axis object to plot on.
+    x_col (Series): X-axis data.
+    y_col (Series): Y-axis data.
+    mapping (dict): Mapping of sample categories to color and marker.
+    include_label (bool): Whether to include legend labels.
+    aa (float): Transparency (alpha) for scatter points.
+    ss (int): Size of scatter points.
+    lw (float): Line width for scatter.
+    label_fontsize (int): Font size for axis labels.
+    legend_fontsize (int): Font size for legend.
+
+    Returns:
+    None
+    """
     corr = round(np.corrcoef(x_col, y_col)[0][1], 2)
     for start_str, (color, marker) in mapping.items():
         mask = df['SAMPLE'].str.startswith(start_str)
@@ -128,55 +214,28 @@ def plot_data(df, axis, x_col, y_col, mapping, include_label=False, aa=0.7, ss=6
               transform=axis.transAxes)
     if include_label:
         axis.legend(fontsize=legend_fontsize)
-        
-
-def create_and_save_plots(df, target_var, pred1, pred2):
-    # Ensure the output folder exists, create it if it doesn't
-    output_folder = 'figures_output'
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-
-    # Create subplots with shared x-axes within each column
-    fig, axes = plt.subplots(3, 2, figsize=(14, 10), sharey=True, sharex='col')
-    axes = axes.flatten()  # Flatten to easily iterate over
-
-    # Define your conditions for plotting
-    conditions = [
-        (df[pred1], df[target_var], 0, 80),  
-        (df[pred2], df[target_var], 0, 40),  
-        (df[pred1][df['Archaeology'] == 1], df[target_var][df['Archaeology'] == 1], 0, 80, True),  
-        (df[pred2][df['Archaeology'] == 1], df[target_var][df['Archaeology'] == 1], 0, 40),
-        (df[pred1][df['Archaeology'] == 0], df[target_var][df['Archaeology'] == 0], 0, 80),
-        (df[pred2][df['Archaeology'] == 0], df[target_var][df['Archaeology'] == 0], 0, 40),
-    ]
-    # Loop through conditions and plot
-    for i, (ax, (x, y, xlim_lower, xlim_upper, *include_label)) in enumerate(zip(axes, conditions)):
-        plot_data(ax, x, y, include_label=bool(include_label))
-        ax.set_xlim(xlim_lower, xlim_upper)  # Set x-axis limits
-        ax.grid(True)  # Enable the grid
-        ax.tick_params(axis='y', labelsize=12) 
-        ax.tick_params(axis='x', labelsize=12) 
-        # Set y-axis label for the first and fourth plot (left column)
-        if i == 0 or i == 2 or i == 4:
-            ax.set_ylabel(f'{target_var} [-]', fontsize=16)
-
-    # Set legend for the third subplot (index 2)
-    axes[2].legend(loc='upper right', fontsize=10)
-    axes[4].set_xlabel(pred1, fontsize=16)  # Set x-axis label
-    axes[5].set_xlabel(pred2, fontsize=16)  # Set x-axis label
-
-    plt.tight_layout(pad=1.0)  # Adjust layout
-
-    # Full file path
-    file_name = target_var + pred1 + pred2 + '.png'
-    full_file_path = os.path.join(output_folder, file_name)
-
-    # Save and show the figure
-    plt.savefig(full_file_path, dpi=300, bbox_inches='tight')
-    plt.show()
 
 
 def plot_data1(axis, df, x_col_name, y_col_name, mapping, include_label=False, aa=0.7, ss=60, lw=0, label_fontsize=10, legend_fontsize=10):
+    """
+    Plots scatter data and fits individual and global regression lines with R² scores.
+
+    Args:
+    axis (matplotlib axis): Axis object to plot on.
+    df (DataFrame): The input dataframe.
+    x_col_name (str): Name of the x-axis variable.
+    y_col_name (str): Name of the y-axis variable.
+    mapping (dict): Mapping of sample categories to color and marker.
+    include_label (bool): Whether to include legend labels.
+    aa (float): Transparency (alpha) for scatter points.
+    ss (int): Size of scatter points.
+    lw (float): Line width for scatter.
+    label_fontsize (int): Font size for axis labels.
+    legend_fontsize (int): Font size for legend.
+
+    Returns:
+    tuple: Slopes, intercepts, and average Xlf_IP values for individual sites.
+    """
     slopes = []
     intercepts = []
     avg_xlf_ips = []
@@ -227,9 +286,25 @@ def plot_data1(axis, df, x_col_name, y_col_name, mapping, include_label=False, a
 
 # Function to plot data with linear regression and display R^2 score
 def plot_data2(axis, df, x_col_name, y_col_name, mapping, include_label=False, aa=0.7, ss=60, lw=0, label_fontsize=10, legend_fontsize=10):
-    slopes = []
-    intercepts = []
-    avg_xlf_ips = []
+    """
+    Plots data with simple and multiple linear regression, comparing R² scores.
+
+    Args:
+    axis (matplotlib axis): Axis object to plot on.
+    df (DataFrame): The input dataframe.
+    x_col_name (str): Name of the x-axis variable.
+    y_col_name (str): Name of the y-axis variable.
+    mapping (dict): Mapping of sample categories to color and marker.
+    include_label (bool): Whether to include legend labels.
+    aa (float): Transparency (alpha) for scatter points.
+    ss (int): Size of scatter points.
+    lw (float): Line width for scatter.
+    label_fontsize (int): Font size for axis labels.
+    legend_fontsize (int): Font size for legend.
+
+    Returns:
+    tuple: Standard deviations and R² differences between simple and multiple regression.
+    """
     std_devs = []
     r2_diffs = []
     
@@ -274,714 +349,25 @@ def plot_data2(axis, df, x_col_name, y_col_name, mapping, include_label=False, a
     return std_devs, r2_diffs
 
 
-def plot1(fig1, ax1, ax2, ax3, ax4, ax5, ax6):
-    fig1.tight_layout()
-
-    #ax1.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax1.tick_params(axis='y', labelsize=12) 
-    ax1.tick_params(axis='x', labelsize=12) 
-    #ax1.set_xlabel('Clay [%]', fontsize = 16) 
-    ax1.set_ylabel('Klf [m-3] all', fontsize = 16) 
-    ax1.grid(True) 
-    ax1.set_xlim(0, 80) 
-
-    #ax2.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax2.tick_params(axis='y', labelsize=12) 
-    ax2.tick_params(axis='x', labelsize=12) 
-    #ax2.set_xlabel('CEC [meq/100g]', fontsize = 16) 
-    #ax2.set_ylabel('Klf [m3/kg]', fontsize = 16) 
-    ax2.grid(True) 
-    ax2.set_xlim(0, 45) 
-
-    #ax3.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax3.tick_params(axis='y', labelsize=12) 
-    ax3.tick_params(axis='x', labelsize=12) 
-    #ax3.set_xlabel('Clay [%]', fontsize = 16) 
-    ax3.set_ylabel('Klf [m-3] arch', fontsize = 16) 
-    ax3.grid(True) 
-    ax3.set_xlim(0, 80) 
-
-    #ax4.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax4.tick_params(axis='y', labelsize=12) 
-    ax4.tick_params(axis='x', labelsize=12) 
-    #ax4.set_xlabel('CEC [meq/100g]', fontsize = 16) 
-    #ax4.set_ylabel('Klf [m3/kg]', fontsize = 16) 
-    ax4.grid(True) 
-    ax4.set_xlim(0, 45) 
-
-    #ax5.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax5.tick_params(axis='y', labelsize=12) 
-    ax5.tick_params(axis='x', labelsize=12) 
-    ax5.set_xlabel('Clay [%]', fontsize = 16) 
-    ax5.set_ylabel('Klf [m-3] no arch', fontsize = 16) 
-    ax5.grid(True) 
-    ax5.set_xlim(0, 80) 
-
-    #ax6.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax6.tick_params(axis='y', labelsize=12) 
-    ax6.tick_params(axis='x', labelsize=12) 
-    ax6.set_xlabel('CEC [meq/100g]', fontsize = 16) 
-    #ax6.set_ylabel('Klf [m3/kg]', fontsize = 16) 
-    ax6.grid(True) 
-    ax6.set_xlim(0, 45) 
-
-
-def plot2(fig2, ax1, ax2, ax3, ax4, ax5, ax6):
-    fig2.tight_layout()
-
-    #ax1.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax1.tick_params(axis='y', labelsize=12) 
-    ax1.tick_params(axis='x', labelsize=12) 
-    #ax1.set_xlabel('Clay [%]', fontsize = 16) 
-    ax1.set_ylabel('Kfd_abs [m3/kg] all', fontsize = 16) 
-    ax1.grid(True) 
-    ax1.set_xlim(0, 80) 
-
-    #ax2.legend(loc='upper right', fontsize = 8)
-    #ax2.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax2.tick_params(axis='y', labelsize=12) 
-    ax2.tick_params(axis='x', labelsize=12) 
-    #ax2.set_xlabel('CEC [meq/100g]', fontsize = 16) 
-    #ax2.set_ylabel('Kfd_abs [m3/kg]', fontsize = 16) 
-    ax2.grid(True) 
-    ax2.set_xlim(0, 45) 
-
-    #ax3.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax3.tick_params(axis='y', labelsize=12) 
-    ax3.tick_params(axis='x', labelsize=12) 
-    #ax3.set_xlabel('Clay [%]', fontsize = 16) 
-    ax3.set_ylabel('Kfd_abs [m3/kg] arch', fontsize = 16) 
-    ax3.grid(True) 
-    ax3.set_xlim(0, 80) 
-
-    #ax4.legend(loc='upper right', fontsize = 8)
-    #ax4.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax4.tick_params(axis='y', labelsize=12) 
-    ax4.tick_params(axis='x', labelsize=12) 
-    #ax4.set_xlabel('CEC [meq/100g]', fontsize = 16) 
-    #ax4.set_ylabel('Kfd_abs [m3/kg]', fontsize = 16) 
-    ax4.grid(True) 
-    ax4.set_xlim(0, 45) 
-
-    #ax5.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax5.tick_params(axis='y', labelsize=12) 
-    ax5.tick_params(axis='x', labelsize=12) 
-    ax5.set_xlabel('Clay [%]', fontsize = 16) 
-    ax5.set_ylabel('Kfd_abs [m3/kg] no arch', fontsize = 16) 
-    ax5.grid(True) 
-    ax5.set_xlim(0, 80) 
-
-    #ax6.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax6.tick_params(axis='y', labelsize=12) 
-    ax6.tick_params(axis='x', labelsize=12) 
-    ax6.set_xlabel('CEC [meq/100g]', fontsize = 16) 
-    #ax6.set_ylabel('Kfd_abs [m3/kg]', fontsize = 16) 
-    ax6.grid(True) 
-    ax6.set_xlim(0, 45) 
-
-
-def plot3(fig3, ax1, ax2, ax3, ax4, ax5, ax6):
-    fig3.tight_layout()
-
-    ax1.legend(loc='upper right', fontsize = 8)
-    #ax1.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax1.tick_params(axis='y', labelsize=12) 
-    ax1.tick_params(axis='x', labelsize=12) 
-    #ax1.set_xlabel('Clay [%]', fontsize = 16) 
-    ax1.set_ylabel('Kfd [%] all', fontsize = 16) 
-    ax1.grid(True) 
-    ax1.set_ylim(0, 5e-3)  
-    ax1.set_xlim(0, 80) 
-    ax1.legend(loc='upper right', fontsize = 10)
-
-    #ax2.legend(loc='upper right', fontsize = 8)
-    #ax2.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax2.tick_params(axis='y', labelsize=12) 
-    ax2.tick_params(axis='x', labelsize=12) 
-    #ax2.set_xlabel('CEC [meq/100g]', fontsize = 16) 
-    #ax2.set_ylabel('Kfd [%]', fontsize = 16) 
-    ax2.grid(True) 
-    ax2.set_ylim(0, 5e-3)  
-    ax2.set_xlim(0, 45) 
-    ax2.legend(loc='upper right', fontsize = 10)
-
-    ax3.legend(loc='upper right', fontsize = 8)
-    #ax3.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax3.tick_params(axis='y', labelsize=12) 
-    ax3.tick_params(axis='x', labelsize=12) 
-    #ax3.set_xlabel('Clay [%]', fontsize = 16) 
-    ax3.set_ylabel('Kfd [%] arch', fontsize = 16) 
-    ax3.grid(True) 
-    ax3.set_ylim(0, 5e-3)  
-    ax3.set_xlim(0, 80) 
-    ax3.legend(loc='upper right', fontsize = 10)
-
-    #ax4.legend(loc='upper right', fontsize = 8)
-    #ax4.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax4.tick_params(axis='y', labelsize=12) 
-    ax4.tick_params(axis='x', labelsize=12) 
-    #ax4.set_xlabel('CEC [meq/100g]', fontsize = 16) 
-    #ax4.set_ylabel('Kfd [%]', fontsize = 16) 
-    ax4.grid(True) 
-    ax4.set_ylim(0, 5e-3)  
-    ax4.set_xlim(0, 45) 
-    ax4.legend(loc='upper right', fontsize = 10)
-
-    #ax5.legend(loc='upper right', fontsize = 8)
-    #ax5.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax5.tick_params(axis='y', labelsize=12) 
-    ax5.tick_params(axis='x', labelsize=12) 
-    ax5.set_xlabel('Clay [%]', fontsize = 16) 
-    ax5.set_ylabel('Kfd [%] no arch', fontsize = 16) 
-    ax5.grid(True) 
-    ax5.set_ylim(0, 5e-3)  
-    ax5.set_xlim(0, 80) 
-    ax5.legend(loc='upper right', fontsize = 10)
-
-    #ax6.legend(loc='upper right', fontsize = 8)
-    #ax6.set_title("Susceptibility vs clay" , fontweight='bold', fontsize=20) 
-    ax6.tick_params(axis='y', labelsize=12) 
-    ax6.tick_params(axis='x', labelsize=12) 
-    ax6.set_xlabel('CEC [meq/100g]', fontsize = 16) 
-    #ax6.set_ylabel('Kfd [%]', fontsize = 16) 
-    ax6.grid(True) 
-    ax6.set_ylim(0, 5e-3)  
-    ax6.set_xlim(0, 45) 
-    ax6.legend(loc='upper right', fontsize = 10)
-
-
-def ThreeD1(axa, plt):
-    plt.rcParams["figure.figsize"] = (6,4) 
-    plt.rcParams["figure.dpi"] = 150
-    axa.tick_params(axis='y', labelsize=10) 
-    axa.tick_params(axis='x', labelsize=10) 
-    axa.set_xlabel(" Clay" , fontweight='bold', fontsize=12) 
-    axa.set_ylabel(" F1mass" , fontweight='bold', fontsize=12) 
-    axa.set_zlabel(" CEC [meq/100g]" , fontweight='bold', fontsize=12) 
-    axa.set_title("  " , fontweight='bold', fontsize=16) 
-    axa.set_zlim(0, 80) 
-
-
-def valthe(ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8, plt):
-    import numpy as np
-    ax1.legend(loc='lower right', fontsize = 12)
-    ax1.set_title(" " , fontweight='bold', fontsize=25) 
-    ax1.tick_params(axis='y', labelsize=18) 
-    ax1.tick_params(axis='x', labelsize=18) 
-    ax1.set_xlabel('Volumetric content [%]', fontsize = 18) 
-    ax1.set_ylabel('Depth [cm]', fontsize = 18) 
-    #ax1.set_yticks(np.arange(0, -120, -3))
-    ax1.set_xticks(np.arange(1, 60, 5))
-    ax1.grid(True) 
-    #ax1.set_ylim(0, yc)  
-    ax1.set_xlim(0, 60) 
-
-    ax2.legend(loc='lower left', fontsize = 12) 
-    ax2.set_title(" " , fontweight='bold', fontsize=25) 
-    ax2.tick_params(axis='y', labelsize=18) 
-    ax2.tick_params(axis='x', labelsize=18) 
-    #ax2.set_ylabel('Depth [cm]', fontsize = 16) 
-    ax2.set_xlabel('Original Bulk EC [mS/m]', fontsize = 18) 
-    ax2.grid(True) 
-    #ax2.set_ylim(0, yc) 
-    ax2.set_xlim(0, 1.6)
-
-    ax3.legend(loc='upper right', fontsize = 12) 
-    ax3.set_title(" " , fontweight='bold', fontsize=25) 
-    ax3.tick_params(axis='y', labelsize=18) 
-    ax3.tick_params(axis='x', labelsize=18) 
-    ax3.set_ylabel('Depth [cm]', fontsize = 18) 
-    ax3.set_xlabel('Real Relative Permittivity [-]', fontsize = 18) 
-    ax3.grid(True) 
-    #ax3.set_ylim(0, yc) 
-    ax3.set_xlim(0, 20)
-
-    ax4.legend(loc='upper right', fontsize = 12) 
-    ax4.set_title(" " , fontweight='bold', fontsize=25) 
-    ax4.tick_params(axis='y', labelsize=18) 
-    ax4.tick_params(axis='x', labelsize=18) 
-    #ax4.set_ylabel('Depth [cm]', fontsize = 16) 
-    ax4.set_xlabel('Corrected Bulk EC [mS/m]', fontsize = 18) 
-    ax4.grid(True) 
-    #ax4.set_ylim(0, yc) 
-    ax4.set_xlim(0, 1.6)
-
-    ax6.legend(loc='upper left', fontsize = 12) 
-    ax6.set_title(" " , fontweight='bold', fontsize=25) 
-    ax6.tick_params(axis='y', labelsize=18) 
-    ax6.tick_params(axis='x', labelsize=18) 
-    #ax6.set_ylabel('Depth [cm]', fontsize = 16) 
-    ax6.set_xlabel('Water Conductivity [S/m]', fontsize = 18) 
-    ax6.grid(True) 
-    #ax6.set_ylim(-80, 0) 
-    ax6.set_xlim(0, 0.22)
-    #ax6.set_yticks(np.arange(0, 0.25, 0.02))
-    ax6.set_xticks(np.arange(0, 0.22, 0.02))
-
-    ax5.legend(loc='lower right', fontsize = 12) 
-    ax5.set_title(" " , fontweight='bold', fontsize=25) 
-    ax5.tick_params(axis='y', labelsize=18) 
-    ax5.tick_params(axis='x', labelsize=18) 
-    ax5.set_ylabel('Depth', fontsize = 16) 
-    ax5.set_xlabel('Magnetic suceptibility [SI$*10^{-3}$]', fontsize = 18) 
-    ax5.grid(True) 
-    #ax5.set_ylim(0, 35) 
-    ax5.set_xlim(0, 0.25)
-    
-    ax7.legend(loc='upper left', fontsize = 12) 
-    #ax7.set_title("Field calibration curve " , fontweight='bold', fontsize=25) 
-    ax7.tick_params(axis='y', labelsize=18) 
-    ax7.tick_params(axis='x', labelsize=18) 
-    ax7.set_xlabel('Real Rel. Permittivity', fontsize = 16) 
-    ax7.set_ylabel('Volumetric water contect [m3/m3]', fontsize = 18) 
-    ax7.grid(True) 
-    ax7.set_xlim(0.001, 40) 
-    ax7.set_ylim(5, 45)
-    #ax7.set_yticks(np.arange(0, 0.25, 0.02))
-    #ax7.set_xticks(np.arange(0, 0.22, 0.02))
-
-    ax8.legend(loc='lower right', fontsize = 12) 
-    #ax8.set_title("Field calibration curve " , fontweight='bold', fontsize=25) 
-    ax8.tick_params(axis='y', labelsize=18) 
-    ax8.tick_params(axis='x', labelsize=18) 
-    ax8.set_xlabel('Real Rel. Permittivity', fontsize = 16) 
-    ax8.set_ylabel('Volumetric water contect [m3/m3]', fontsize = 18) 
-    ax8.grid(True) 
-    #ax8.set_xlim(0.001, 40) 
-    #ax8.set_ylim(5, 45)
-    #ax8.set_yticks(np.arange(0, 0.25, 0.02))
-    #ax8.set_xticks(np.arange(0, 0.22, 0.02))
-    
-    
-def fielworkgraph(ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8, plt):
-    import numpy as np
-    ax1.legend(loc='upper left', fontsize = 8)
-    ax1.set_title(" " , fontweight='bold', fontsize=25) 
-    ax1.tick_params(axis='y', labelsize=18) 
-    ax1.tick_params(axis='x', labelsize=18) 
-    ax1.set_xlabel('Volumetric content [%]', fontsize = 18) 
-    ax1.set_ylabel('Depth [cm]', fontsize = 18) 
-    #ax1.set_yticks(np.arange(0, -120, -3))
-    ax1.set_xticks(np.arange(0, 60, 5))
-    ax1.grid(True) 
-    #ax1.set_ylim(0, yc)  
-    ax1.set_xlim(0, 60) 
-
-    ax2.legend(loc='upper right', fontsize = 8) 
-    ax2.set_title(" " , fontweight='bold', fontsize=25) 
-    ax2.tick_params(axis='y', labelsize=18) 
-    ax2.tick_params(axis='x', labelsize=18) 
-    #ax2.set_ylabel('Depth [cm]', fontsize = 16) 
-    ax2.set_xlabel('Original Bulk EC [mS/m]', fontsize = 18) 
-    ax2.grid(True) 
-    #ax2.set_ylim(0, yc) 
-    ax2.set_xlim(0, 70)
-
-    ax3.legend(loc='upper right', fontsize = 14) 
-    ax3.set_title(" " , fontweight='bold', fontsize=25) 
-    ax3.tick_params(axis='y', labelsize=18) 
-    ax3.tick_params(axis='x', labelsize=18) 
-    ax3.set_ylabel('Depth [cm]', fontsize = 18) 
-    ax3.set_xlabel('Real Relative Permittivity [-]', fontsize = 18) 
-    ax3.grid(True) 
-    #ax3.set_ylim(0, yc) 
-    ax3.set_xlim(0, 35)
-
-    ax4.legend(loc='upper right', fontsize = 8) 
-    ax4.set_title(" " , fontweight='bold', fontsize=25) 
-    ax4.tick_params(axis='y', labelsize=18) 
-    ax4.tick_params(axis='x', labelsize=18) 
-    #ax4.set_ylabel('Depth [cm]', fontsize = 16) 
-    ax4.set_xlabel('Corrected Bulk EC [mS/m]', fontsize = 18) 
-    ax4.grid(True) 
-    #ax4.set_ylim(0, yc) 
-    ax4.set_xlim(0, 70)
-
-    ax5.legend(loc='upper left', fontsize = 8) 
-    ax5.set_title(" " , fontweight='bold', fontsize=25) 
-    ax5.tick_params(axis='y', labelsize=18) 
-    ax5.tick_params(axis='x', labelsize=18) 
-    #ax5.set_ylabel('Depth [cm]', fontsize = 16) 
-    ax5.set_xlabel('Water Conductivity [S/m]', fontsize = 18) 
-    ax5.grid(True) 
-    #ax5.set_ylim(-80, 0) 
-    ax5.set_xlim(0, 0.22)
-    #ax5.set_yticks(np.arange(0, 0.25, 0.02))
-    ax5.set_xticks(np.arange(0, 0.22, 0.02))
-
-    ax6.legend(loc='upper left', fontsize = 8) 
-    ax6.set_title(" " , fontweight='bold', fontsize=25) 
-    ax6.tick_params(axis='y', labelsize=18) 
-    ax6.tick_params(axis='x', labelsize=18) 
-    ax6.set_ylabel('Real Permitivitty [-]', fontsize = 16) 
-    ax6.set_xlabel('Correctec Bulk Conductivity [mS/m]', fontsize = 18) 
-    ax6.grid(True) 
-    ax6.set_ylim(0, 35) 
-    ax6.set_xlim(0, 50)
-    
-    ax7.legend(loc='upper left', fontsize = 8) 
-    #ax7.set_title("Field calibration curve " , fontweight='bold', fontsize=25) 
-    ax7.tick_params(axis='y', labelsize=18) 
-    ax7.tick_params(axis='x', labelsize=18) 
-    ax7.set_ylabel('Real Rel. Permittivity', fontsize = 16) 
-    ax7.set_xlabel('Volumetric water contect [m3/m3]', fontsize = 18) 
-    ax7.grid(True) 
-    ax7.set_xlim(0.00, 70) 
-    ax7.set_ylim(5, 90)
-    #ax7.set_yticks(np.arange(0, 0.25, 0.02))
-    #ax7.set_xticks(np.arange(0, 0.22, 0.02))
-
-    ax8.legend(loc='lower right', fontsize = 8) 
-    #ax8.set_title("Field calibration curve " , fontweight='bold', fontsize=25) 
-    ax8.tick_params(axis='y', labelsize=18) 
-    ax8.tick_params(axis='x', labelsize=18) 
-    ax8.set_ylabel('Real Rel. Permittivity', fontsize = 16) 
-    ax8.set_xlabel('Volumetric water contect [m3/m3]', fontsize = 18) 
-    ax8.grid(True) 
-    #ax8.set_xlim(0.001, 40) 
-    #ax8.set_ylim(5, 45)
-    #ax8.set_yticks(np.arange(0, 0.25, 0.02))
-    #ax8.set_xticks(np.arange(0, 0.22, 0.02))
-
-def moist_curve(axa, axb, axc, axd, axe, axf, axg, axh, plt):
-    import numpy as np
-    xlim = 50
-    axa.legend(loc='upper left', fontsize = 14)
-    axa.set_title("Water content vs Real Permittivity " , fontweight='bold', fontsize=25) 
-    axa.tick_params(axis='y', labelsize=20) 
-    axa.tick_params(axis='x', labelsize=20) 
-    axa.set_xlabel('Volumetric water content [%]', fontsize = 22) 
-    axa.set_ylabel('Real Permittivity', fontsize = 22) 
-    axa.set_yticks(np.arange(0, 50, 5))
-    axa.set_xticks(np.arange(0, xlim, 5))
-    axa.grid(True) 
-    axa.set_ylim(0, 50)  
-    axa.set_xlim(0, xlim) 
-
-    axb.legend(loc='upper left', fontsize = 14)
-    axb.set_title("Water content vs Im. Permittivity " , fontweight='bold', fontsize=25) 
-    axb.tick_params(axis='y', labelsize=20) 
-    axb.tick_params(axis='x', labelsize=20) 
-    axb.set_xlabel('Volumetric water content [%]', fontsize = 22) 
-    axb.set_ylabel('Imaginary Permittivity', fontsize = 22) 
-    axb.set_yticks(np.arange(0, 80, 10))
-    axb.set_xticks(np.arange(0, xlim, 5))
-    axb.grid(True) 
-    axb.set_ylim(0, 80)  
-    axb.set_xlim(0, xlim) 
-
-    axc.legend(loc='upper left', fontsize = 14)
-    axc.set_title("Water content vs EC" , fontweight='bold', fontsize=25) 
-    axc.tick_params(axis='y', labelsize=20) 
-    axc.tick_params(axis='x', labelsize=20) 
-    axc.set_xlabel('Volumetric water content [%]', fontsize = 22) 
-    axc.set_ylabel('EC [mS/m]', fontsize = 22) 
-    axc.set_yticks(np.arange(0, 500, 50))
-    axc.set_xticks(np.arange(0, xlim, 5))
-    axc.grid(True) 
-    axc.set_ylim(0, 500)  
-    axc.set_xlim(0, xlim) 
-
-    axd.legend(loc='upper left', fontsize = 14)
-    axd.set_title("Water content vs EC" , fontweight='bold', fontsize=25) 
-    axd.tick_params(axis='y', labelsize=20) 
-    axd.tick_params(axis='x', labelsize=20) 
-    axd.set_xlabel('Volumetric water content [%]', fontsize = 22) 
-    axd.set_ylabel('EC [mS/m]', fontsize = 22) 
-    axd.set_yticks(np.arange(0, 85, 10))
-    axd.set_xticks(np.arange(0, xlim, 5))
-    axd.grid(True) 
-    axd.set_ylim(0, 85)  
-    axd.set_xlim(0, xlim) 
-    
-    axe.legend(loc='upper left', fontsize = 14)
-    axe.set_title("Water content vs Relaxation component " , fontweight='bold', fontsize=25) 
-    axe.tick_params(axis='y', labelsize=20) 
-    axe.tick_params(axis='x', labelsize=20) 
-    axe.set_xlabel('Volumetric water content [%]', fontsize = 22) 
-    axe.set_ylabel('Relaxation component [-]', fontsize = 22) 
-    #axe.set_yticks(np.arange(0, 55, 5))
-    axe.set_xticks(np.arange(0, xlim, 5))
-    axe.grid(True) 
-    #axe.set_ylim(0, 55)  
-    axe.set_xlim(0, xlim) 
-    
-    axf.legend(loc='lower right', fontsize = 14)
-    axf.set_title("EC vs Real permittivity" , fontweight='bold', fontsize=25) 
-    axf.tick_params(axis='y', labelsize=18) 
-    axf.tick_params(axis='x', labelsize=18) 
-    axf.set_xlabel('EC [mS/m]', fontsize = 18) 
-    axf.set_ylabel('Real Permittivity', fontsize = 18) 
-    axf.set_yticks(np.arange(0, 50, 5))
-    #axf.set_xticks(np.arange(0, 50, 5))
-    axf.grid(True) 
-    axf.set_ylim(0, 50)  
-    #axf.set_xlim(0, 50) 
-    
-    axg.legend(loc='upper left', fontsize = 14)
-    axg.set_title("Water content vs Real Permittivity " , fontweight='bold', fontsize=25) 
-    axg.tick_params(axis='y', labelsize=18) 
-    axg.tick_params(axis='x', labelsize=18) 
-    axg.set_xlabel('Volumetric water content [%]', fontsize = 18) 
-    axg.set_ylabel('Real Permittivity', fontsize = 18) 
-    #axg.set_yticks(np.arange(0, 300, 20))
-    axg.set_xticks(np.arange(0, 50, 5))
-    axg.grid(True) 
-    #axg.set_ylim(0, 80)  
-    axg.set_xlim(0, 50) 
-    
-    #axh.legend(loc='upper left', fontsize = 14)
-    #axh.set_title("Water content vs Real Permittivity " , fontweight='bold', fontsize=25) 
-    #axh.tick_params(axis='y', labelsize=18) 
-    #axh.tick_params(axis='x', labelsize=18) 
-    #axh.set_xlabel('Volumetric water content [%]', fontsize = 18) 
-    #axh.set_ylabel('Real Permittivity', fontsize = 18) 
-    #axh.set_yticks(np.arange(0, 50, 5))
-    #axh.set_xticks(np.arange(0, 50, 5))
-    #axh.grid(True) 
-    #axh.set_ylim(0, 50)  
-    #axh.set_xlim(0, 50) 
-
-
-def pltmsc(ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8, ax9, ax10, ax11, ax12, lw, yc, plt):
-    ax1.legend(loc='upper right', fontsize = 10)
-    ax1.set_title("Susceptibility vs Sand" , fontweight='bold', fontsize=25) 
-    ax1.tick_params(axis='y', labelsize=12) 
-    ax1.tick_params(axis='x', labelsize=12) 
-    ax1.set_xlabel('Sand [%]', fontsize = 16) 
-    ax1.set_ylabel('Susceptibility [10−8 m3/kg]', fontsize = 16) 
-    ax1.grid(True) 
-    ax1.set_ylim(0, yc)  
-    #ax1.set_xlim(1, 50) 
-    ax1.legend(loc='upper right', fontsize = 10)
-
-    ax2.legend(loc='upper left', fontsize = 10) 
-    ax2.set_title("Susceptibility vs Organic matter" , fontweight='bold', fontsize=25) 
-    ax2.tick_params(axis='y', labelsize=12) 
-    ax2.tick_params(axis='x', labelsize=12) 
-    ax2.set_ylabel('Susceptibility [10−8 m3/kg]', fontsize = 16) 
-    ax2.set_xlabel('Organic matter [%]', fontsize = 16) 
-    ax2.grid(True) 
-    ax2.set_ylim(0, yc) 
-    #ax2.set_xlim(10, 100000)
-    ax2.legend(loc='upper left', fontsize = 10) 
-
-    ax3.grid(True) 
-    ax3.set_ylabel('Susceptibility [10−8 m3/kg]', fontsize = 16) 
-    ax3.set_xlabel("Cobalt [mg/Kg]" , fontsize = 16) 
-    ax3.legend(loc='upper left', fontsize = 10) 
-    ax3.set_title("Susceptibility vs Cobalt" , fontweight='bold', fontsize=25) 
-    ax3.tick_params(axis='y', labelsize=12) 
-    ax3.tick_params(axis='x', labelsize=12) 
-    ax3.set_ylim(0, yc) 
-    #ax3.set_xlim(0, 60) 
-    ax3.legend(loc='upper left', fontsize = 10) 
-
-    ax12.legend(loc='upper right', fontsize = 10) 
-    ax12.set_title("Susceptibility vs Copper" , fontweight='bold', fontsize=25) 
-    ax12.tick_params(axis='y', labelsize=12) 
-    ax12.tick_params(axis='x', labelsize=12) 
-    ax12.set_xlabel('Copper [mg/Kg]', fontsize = 16) 
-    ax12.set_ylabel('Susceptibility [10−8 m3/kg]', fontsize = 16) 
-    ax12.grid(True) 
-    ax12.set_ylim(0, yc) 
-    #ax12.set_xlim(0.1, 0.8) 
-    ax12.legend(loc='upper right', fontsize = 10) 
-
-    ax5.legend(loc='upper right', fontsize = 10) 
-    ax5.set_title("Susceptibility vs Iron" , fontweight='bold', fontsize=25) 
-    ax5.tick_params(axis='y', labelsize=12) 
-    ax5.tick_params(axis='x', labelsize=12) 
-    ax5.set_xlabel('Iron [mg/Kg]', fontsize = 16) 
-    ax5.set_ylabel('Susceptibility [10−8 m3/kg]', fontsize = 16) 
-    ax5.grid(True) 
-    ax5.set_ylim(0, yc) 
-    #ax5.set_xlim(0, 25) 
-    ax5.legend(loc='upper right', fontsize = 10) 
-
-    ax6.set_title("Susceptibility vs Zinc" , fontweight='bold', fontsize=25) 
-    ax6.tick_params(axis='y', labelsize=12) 
-    ax6.tick_params(axis='x', labelsize=12) 
-    ax6.set_ylabel('Susceptibility [10−8 m3/kg]', fontsize = 16) 
-    ax6.set_xlabel('Zinc [mg/Kg]', fontsize = 16) 
-    ax6.grid(True) 
-    #ax6.set_xlim(0, 65) 
-    ax6.set_ylim(0, yc)
-    ax6.legend(loc='upper right', fontsize = 10) 
-    
-    ax7.set_title("Susceptibility vs pH" , fontweight='bold', fontsize=25) 
-    ax7.tick_params(axis='y', labelsize=12) 
-    ax7.tick_params(axis='x', labelsize=12) 
-    ax7.set_xlabel('pH', fontsize = 16) 
-    ax7.set_ylabel('Susceptibility [10−8 m3/kg]', fontsize = 16) 
-    ax7.grid(True) 
-    ax7.set_ylim(0, yc) 
-    #ax7.set_xlim(0, 25) 
-    ax7.legend(loc='upper right', fontsize = 10) 
-
-    ax8.set_title("LF Susceptibility vs PLI" , fontweight='bold', fontsize=25) 
-    ax8.tick_params(axis='y', labelsize=12) 
-    ax8.tick_params(axis='x', labelsize=12) 
-    ax8.set_ylabel('LF Susceptibility [10−8 m3/kg]', fontsize = 16) 
-    ax8.set_xlabel("Pollution Load Index", fontsize = 16) 
-    ax8.grid(True) 
-    #ax8.set_xlim(0, 65) 
-    #ax8.set_ylim(0, yc)
-    ax8.legend(loc='upper right', fontsize = 10) 
-    
-    ax9.legend(loc='upper right', fontsize = 10) 
-    ax9.set_title("Susceptibility vs Chrome" , fontweight='bold', fontsize=25) 
-    ax9.tick_params(axis='y', labelsize=12) 
-    ax9.tick_params(axis='x', labelsize=12) 
-    ax9.set_xlabel('Chrome [mg/Kg]', fontsize = 16) 
-    ax9.set_ylabel('Susceptibility [10−8 m3/kg]', fontsize = 16) 
-    ax9.grid(True) 
-    ax9.set_ylim(0, yc) 
-    #ax9.set_xlim(0, 25) 
-    ax9.legend(loc='upper right', fontsize = 10) 
-
-    ax10.set_title("Susceptibility vs Plumb" , fontweight='bold', fontsize=25) 
-    ax10.tick_params(axis='y', labelsize=12) 
-    ax10.tick_params(axis='x', labelsize=12) 
-    ax10.set_ylabel('Susceptibility [10−8 m3/kg]', fontsize = 16) 
-    ax10.set_xlabel('Plumb [mg/Kg]', fontsize = 16) 
-    ax10.grid(True) 
-    #ax10.set_xlim(0, 65) 
-    ax10.set_ylim(0, yc)
-    ax10.legend(loc='upper right', fontsize = 10) 
-    
-    ax11.set_title("Susceptibility vs Nickel" , fontweight='bold', fontsize=25) 
-    ax11.tick_params(axis='y', labelsize=12) 
-    ax11.tick_params(axis='x', labelsize=12) 
-    ax11.set_xlabel('Nickel [mg/Kg]', fontsize = 16) 
-    ax11.set_ylabel('Susceptibility [10−8 m3/kg]', fontsize = 16) 
-    ax11.grid(True) 
-    ax11.set_ylim(0, yc) 
-    #ax11.set_xlim(0, 25) 
-    ax11.legend(loc='upper right', fontsize = 10) 
-
-def sets(axc1, axc2, axc3):
-    wide = 90
-    axc1.legend(loc='lower right', fontsize = 10)
-    axc1.set_title("Field 1", fontweight='bold', fontsize=25)
-    axc1.tick_params(axis='y', labelsize=12)
-    axc1.tick_params(axis='x', labelsize=12)
-    axc1.set_xlabel('Magnetic susceptibility [e-5]', fontweight='bold', fontsize = 16)
-    axc1.set_ylabel('Depth [cm]', fontweight='bold', fontsize = 16)
-    axc1.grid(True)
-    #axc1.set_ylim(0, 65) 
-    axc1.set_xlim(1, wide)
-
-    axc2.legend(loc='lower right', fontsize = 10)
-    axc2.set_title("Field 2", fontweight='bold', fontsize=25)
-    axc2.tick_params(axis='y', labelsize=12)
-    axc2.tick_params(axis='x', labelsize=12)
-    axc2.set_xlabel('Magnetic susceptibility [e-5]', fontweight='bold', fontsize = 16)
-    #axc2.set_ylabel('Depth [cm]', fontsize = 16)
-    axc2.grid(True)
-    #axc2.set_ylim(0, 65)
-    axc2.set_xlim(1, wide)
-
-    axc3.grid(True)
-    axc3.set_xlabel('Magnetic susceptibility [e-5]', fontweight='bold', fontsize = 16)
-    #axc3.set_ylabel('Depth [cm]', fontsize = 16)
-    axc3.legend(loc='lower right', fontsize = 10)
-    axc3.set_title("Field 3", fontweight='bold', fontsize=25)
-    axc3.tick_params(axis='y', labelsize=12)
-    axc3.tick_params(axis='x', labelsize=12)
-    #axc3.set_ylim(0, 65)
-    axc3.set_xlim(1, wide)
-    
-def camargoplots(axp1, axp2):
-    axp1.legend(loc='upper right', fontsize = 10)
-    axp1.set_title("Susceptibility vs Pads" , fontweight='bold', fontsize=25) 
-    axp1.tick_params(axis='y', labelsize=12) 
-    axp1.tick_params(axis='x', labelsize=12) 
-    axp1.set_xlabel('Phosphate adsorved [mg/Kg]', fontsize = 16) 
-    axp1.set_ylabel('Susceptibility [10−6 m3/kg]', fontsize = 16) 
-    axp1.grid(True) 
-    #axp1.set_ylim(0, yc)  
-    #axp1.set_xlim(1, 50) 
-    axp1.legend(loc='upper right', fontsize = 10)
-
-    axp2.legend(loc='upper right', fontsize = 10)
-    axp2.set_title("Fe vs Pads" , fontweight='bold', fontsize=25) 
-    axp2.tick_params(axis='y', labelsize=12) 
-    axp2.tick_params(axis='x', labelsize=12) 
-    axp2.set_xlabel('Phosphate adsorved [mg/Kg]', fontsize = 16) 
-    axp2.set_ylabel('Fe [mg/Kg]', fontsize = 16) 
-    axp2.grid(True) 
-    #axp2.set_ylim(0, yc)  
-    #axp2.set_xlim(1, 50) 
-    axp2.legend(loc='upper right', fontsize = 10)
-    
-def pltgamma(ax1, ax2, ax3, ax4, ax5, ax6, lw, yc, plt):
-    
-    ax1.set_title("Sand vs Th/K" , fontweight='bold', fontsize=25) 
-    ax1.set_ylabel('Th / K ratio', fontsize = 16) 
-    ax1.set_xlabel('Sand [%]', fontsize = 16) 
-    ax1.grid(True) 
-    ax1.set_ylim(0, yc)  
-    #ax1.set_xlim(1, 50) 
-    ax1.legend(loc='upper right', fontsize = 10)
-
-    ax2.set_title("Silt vs Th/K" , fontweight='bold', fontsize=25) 
-    ax2.set_xlabel('Silt [%]', fontsize = 16) 
-    ax2.set_ylabel('Th / K ratio', fontsize = 16) 
-    ax2.legend(loc='upper left', fontsize = 10) 
-    ax2.tick_params(axis='y', labelsize=12) 
-    ax2.tick_params(axis='x', labelsize=12) 
-    ax2.grid(True) 
-    ax2.set_ylim(0, yc) 
-    #ax2.set_xlim(10, 100000)
-    ax2.legend(loc='upper left', fontsize = 10) 
-
-    ax3.set_xlabel('Clay [%]', fontsize = 16) 
-    ax3.set_ylabel("Th / K ratio" , fontsize = 16) 
-    ax3.set_title("Clay vs Th/K" , fontweight='bold', fontsize=25) 
-    ax3.grid(True) 
-    ax3.legend(loc='upper left', fontsize = 10) 
-    ax3.tick_params(axis='y', labelsize=12) 
-    ax3.tick_params(axis='x', labelsize=12) 
-    ax3.set_ylim(0, yc) 
-    #ax3.set_xlim(0, 60) 
-    ax3.legend(loc='upper left', fontsize = 10) 
-
-    ax4.legend(loc='upper right', fontsize = 10) 
-    ax4.set_title("CEC vs Th/K" , fontweight='bold', fontsize=25) 
-    ax4.tick_params(axis='y', labelsize=12) 
-    ax4.tick_params(axis='x', labelsize=12) 
-    ax4.set_ylabel('Th / K ratio', fontsize = 16) 
-    ax4.set_xlabel('Cation Exchange Capacity [cmol/Kg]', fontsize = 16) 
-    ax4.grid(True) 
-    ax4.set_ylim(0, yc) 
-    #ax4.set_xlim(0.1, 0.8) 
-    ax4.legend(loc='upper right', fontsize = 10) 
-
-    ax5.legend(loc='upper right', fontsize = 10) 
-    ax5.set_title("pH vs Th/K" , fontweight='bold', fontsize=25) 
-    ax5.tick_params(axis='y', labelsize=12) 
-    ax5.tick_params(axis='x', labelsize=12) 
-    ax5.set_ylabel('Th / K ratio', fontsize = 16) 
-    ax5.set_xlabel('pH', fontsize = 16) 
-    ax5.grid(True) 
-    ax5.set_ylim(0, yc) 
-    #ax5.set_xlim(0, 25) 
-    ax5.legend(loc='upper right', fontsize = 10) 
-
-    ax6.set_title("Organic content vs Th/K" , fontweight='bold', fontsize=25) 
-    ax6.tick_params(axis='y', labelsize=12) 
-    ax6.tick_params(axis='x', labelsize=12) 
-    ax6.set_xlabel('Organic content [%]', fontsize = 16) 
-    ax6.set_ylabel('Th / K ratio', fontsize = 16) 
-    ax6.grid(True) 
-    #ax6.set_xlim(0, 65) 
-    ax6.set_ylim(0, yc)
-    ax6.legend(loc='upper right', fontsize = 10) 
-
-
 # Enhanced 3D plotting function with axis labels
 def plot_3d(df, x, y, z, X, Y, Z, elev=30, azim=30):
+    """
+    Plots a 3D scatter plot and surface plot with specified elevation and azimuth angles.
+
+    Args:
+    df (DataFrame): The input dataframe.
+    x (str): Name of the x-axis variable.
+    y (str): Name of the y-axis variable.
+    z (str): Name of the z-axis variable.
+    X (ndarray): X-axis grid for the surface plot.
+    Y (ndarray): Y-axis grid for the surface plot.
+    Z (ndarray): Z-axis values for the surface plot.
+    elev (int): Elevation angle for the 3D plot.
+    azim (int): Azimuth angle for the 3D plot.
+
+    Returns:
+    None
+    """
     fig = plt.figure(figsize=(8, 6))
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(df[x], df[y], df[z], c="navy", s=15)
@@ -994,6 +380,18 @@ def plot_3d(df, x, y, z, X, Y, Z, elev=30, azim=30):
 
 
 def bars_plot(feature_sets, test_errors_summary, train_errors_summary, target_name):
+    """
+    Plots a bar chart comparing test and train errors for different feature sets.
+
+    Args:
+    feature_sets (list): List of feature set names.
+    test_errors_summary (array): Test error summary values.
+    train_errors_summary (array): Train error summary values.
+    target_name (str): Target variable name for y-axis label.
+
+    Returns:
+    None
+    """
     # Ensure the output folder exists, create it if it doesn't
     output_folder = 'figures_output'
     if not os.path.exists(output_folder):
@@ -1021,7 +419,110 @@ def bars_plot(feature_sets, test_errors_summary, train_errors_summary, target_na
     plt.show()
 
 
+def plot_kfdepth(df, var1, var2, mapping, onexone_line=False, log_scale=False):
+    """
+    Plots scatter plots of Kfd against depth in two subplots with trend lines.
+
+    Args:
+    df (DataFrame): The input dataframe.
+    var1 (str): The variable name for Kfd.
+    var2 (str): The variable name for depth.
+    mapping (dict): Mapping of sample categories to color and marker.
+    onexone_line (bool): Whether to include a 1:1 line.
+    log_scale (bool): Whether to use logarithmic scale.
+
+    Returns:
+    None
+    """
+    # Drop rows where either var1 or var2 has NaN values
+    df_clean = df.dropna(subset=[var1, var2])
+
+    # Create a figure with two subplots sharing the y-axis
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6), sharey=True)
+    fig.subplots_adjust(wspace=0.02)  # Adjust the space between the subplots
+
+    # Variables to store min and max for Kfd (var1)
+    kfd_min, kfd_max = float('inf'), float('-inf')
+
+    for start_str, (color, marker) in mapping.items():
+        mask = df_clean['SAMPLE'].str.startswith(start_str) & df_clean[var1].notna() & df_clean[var2].notna()
+        filtered_df = df_clean[mask]
+
+        if filtered_df.empty:
+            continue
+
+        # Update min and max for Kfd to ensure consistent scale
+        kfd_min = min(kfd_min, filtered_df[var1].min())
+        kfd_max = max(kfd_max, filtered_df[var1].max())
+
+        # Linear regression to find the trend
+        X = filtered_df[var1].values.reshape(-1, 1)
+        Y = filtered_df[var2].values
+        reg = LinearRegression().fit(X, Y)
+        trend = reg.coef_[0]
+
+        # Calculate Pearson correlation coefficient
+        corr, _ = pearsonr(filtered_df[var1], filtered_df[var2])
+
+        # Generate linear trend line
+        x_range = np.linspace(min(X), max(X), 100)
+        y_trend_line = reg.predict(x_range.reshape(-1, 1))
+
+        # Determine which subplot to use based on the trend
+        if trend > 0:
+            # Plot data points and trend line in the left subplot
+            ax1.scatter(filtered_df[var1], -filtered_df[var2], color=color, marker=marker, label=f'{start_str} (corr={corr:.2f})')
+            ax1.plot(x_range, -y_trend_line, color=color, linestyle='--')
+        else:
+            # Plot data points and trend line in the right subplot
+            ax2.scatter(filtered_df[var1], -filtered_df[var2], color=color, marker=marker, label=f'{start_str} (corr={corr:.2f})')
+            ax2.plot(x_range, -y_trend_line, color=color, linestyle='--')
+
+    # Set properties for both subplots
+    for ax in [ax1, ax2]:
+        ax.set_xlabel(var1)
+        if ax == ax1:
+            ax.set_ylabel('Depth [cm]')
+        ax.grid(True)
+        ax.legend(fontsize='small')
+
+        if log_scale:
+            ax.set_xscale('log')
+            ax.set_yscale('log')
+
+        # Invert the Y-axis for depth from maximum to zero
+        ax.invert_yaxis()
+
+    # Set the same x-axis limits for both subplots for Kfd
+    ax1.set_xlim(kfd_min, kfd_max)
+    ax2.set_xlim(kfd_min, kfd_max)
+
+    # Ensure the output directory exists
+    folder_path = 'figures_output/'
+    os.makedirs(folder_path, exist_ok=True)
+    filename = f"{var1}_{var2}_{'log' if log_scale else 'linear'}_subplots.png"
+    plt.savefig(folder_path + filename)
+
+    plt.show()
+
+
+# Function to fit a polynomial regression model and plot the results in 2D/3D
 def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
+    """
+    Fits a polynomial regression model and plots the results in 2D or 3D.
+
+    Args:
+    df (DataFrame): The input dataframe.
+    x_cols (list): List of predictor variable names.
+    y_col (str): The target variable name.
+    degree (int): The degree of the polynomial fit.
+    mapping (dict): Mapping of sample categories to color.
+    ss (int): Scatter point size.
+    lw (float): Line width for scatter plot.
+
+    Returns:
+    None
+    """
     x = df[x_cols]
     y = df[y_col]
     
@@ -1032,6 +533,8 @@ def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
     # Fit a linear model
     model = LinearRegression()
     model.fit(x_poly, y)
+    print(pd.DataFrame(zip(x_poly, model.coef_)))
+
     print('model.coef_', model.coef_)
     print('model.intercept_', model.intercept_)
 
@@ -1100,7 +603,12 @@ def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
                 zaxis_title=y_col
             )
         )
+        
+        # Show the interactive figure
         fig.show()
+        
+        # Save high-resolution image
+        #pio.write_image(fig, 'figures_output/3D_Plot_High_Resolution.png', width=1920, height=1080, scale=3)
         
     # Create static images from different perspectives using Matplotlib
     fig_static, axes = plt.subplots(1, 3, figsize=(18, 6), subplot_kw={'projection': '3d'})
@@ -1138,55 +646,16 @@ def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
     plt.show()
 
 
-def res_plot(df, var1, var2, cov):# Create a figure with 3 subplots
-    fig, axs = plt.subplots(3, 1, figsize=(10, 18))
-
-    # First plot: var1 vs Fe with linear regression and residuals
-    sns.regplot(x=cov, y=var1, data=df, ax=axs[0])
-    axs[0].set_title(var1+' vs '+cov+' with Linear Regression')
-
-    # Calculate residuals for var1 vs Cov
-    X_var1 = df[var1].values.reshape(-1, 1)
-    y_cov = df[cov].values
-    reg_var1 = LinearRegression().fit(X_var1, y_cov)
-    y_pred_var1 = reg_var1.predict(X_var1)
-    residuals_var1 = y_cov - y_pred_var1
-
-    # Second plot: CEC vs Fe with linear regression and residuals
-    sns.regplot(x=var2, y=cov, data=df, ax=axs[1])
-    axs[1].set_title(var2+' vs '+cov+' with Linear Regression')
-
-    # Calculate residuals for var2 vs Fe
-    X_var2 = df[var2].values.reshape(-1, 1)
-    y_cov = df[cov].values
-    reg_var2 = LinearRegression().fit(X_var2, y_cov)
-    y_pred_var2 = reg_var2.predict(X_var2)
-    residuals_var2 = y_cov - y_pred_var2
-
-    # Third plot: Residuals of both linear regressions
-    corr1 = np.corrcoef(residuals_var2, residuals_var1)
-    axs[2].scatter(residuals_var1, residuals_var2, label='Residuals of '+var1+' vs '+cov+str(corr1), color='blue')
-    axs[2].axhline(y=0, color='black', linestyle='--')
-    axs[2].set_title('Residuals of Linear Regressions')
-    axs[2].set_xlabel('Res '+var1)
-    axs[2].set_ylabel('Res '+var2)
-    axs[2].legend()
-
-    # Adjust layout
-    plt.tight_layout()
-    plt.show()
-
-
 def partial_correlation(df, x_col, y_col, control_cols):
     """
-    Calculate the partial correlation between two columns of a dataframe controlling for two other columns.
-    
+    Calculate the partial correlation between two columns of a dataframe controlling for other columns.
+
     Args:
     df (DataFrame): The input dataframe.
     x_col (str): The name of the first variable column.
     y_col (str): The name of the second variable column.
     control_cols (list of str): The names of the control variable columns.
-    
+
     Returns:
     float: The partial correlation coefficient.
     """
@@ -1215,12 +684,73 @@ def partial_correlation(df, x_col, y_col, control_cols):
 
     # Plotting for visualization
     fig, axs = plt.subplots(1, 3, figsize=(18, 6))
-    for i, control_col in enumerate(control_cols):
-        sns.regplot(x=df[x_col], y=df[control_col], ax=axs[i])
-        axs[i].set_title(f'{x_col} vs {control_col}')
-    sns.scatterplot(x=x_residuals, y=y_residuals, ax=axs[-1])
-    axs[-1].set_title(f'Residuals: {x_col} vs {y_col}\nPartial Corr: {partial_corr:.2f}')
+
+    # Plot x_col vs the first control variable
+    sns.regplot(x=df[x_col], y=df[control_cols[0]], ax=axs[0])
+    axs[0].set_title(f'{x_col} vs {control_cols[0]}')
+
+    # Plot y_col vs the first control variable (or same variable if only one control)
+    sns.regplot(x=df[y_col], y=df[control_cols[0]], ax=axs[1])
+    axs[1].set_title(f'{y_col} vs {control_cols[0]}')
+
+    # Plot the residuals scatter plot
+    sns.scatterplot(x=x_residuals, y=y_residuals, ax=axs[2])
+    axs[2].set_title(f'Residuals: {x_col} vs {y_col}\nPartial Corr: {partial_corr:.2f}')
+
     plt.tight_layout()
     plt.show()
 
     return partial_corr
+
+
+# Function to plot a correlation matrix with a significance mask
+def plot_correlation_matrix(corr_df, p_value_df, labels, p_value_mask=0.05, filename="Fig2.png", folder_path="figures_output/"):
+    """
+    Plots a correlation matrix with a significance mask for p-values.
+
+    Args:
+    corr_df (DataFrame): The correlation matrix dataframe.
+    p_value_df (DataFrame): The p-value matrix dataframe.
+    labels (list): List of labels for the heatmap axes.
+    p_value_mask (float): Significance level for masking p-values.
+    filename (str): The filename for saving the plot.
+    folder_path (str): The folder path to save the plot.
+
+    Returns:
+    None
+    """
+    # Create a mask for significant p-values
+    significant_mask = p_value_df < p_value_mask
+
+    # Mask for the upper triangle
+    mask = np.triu(np.ones_like(corr_df, dtype=bool))
+
+    # Combine the masks
+    final_mask = mask | ~significant_mask
+
+    # Set up the matplotlib figure
+    plt.figure(figsize=(12, 10))
+
+    # Draw the heatmap with the mask and correct aspect ratio
+    sns.heatmap(
+        corr_df, 
+        mask=final_mask, 
+        annot=True, 
+        fmt=".2f", 
+        cmap='coolwarm', 
+        square=True, 
+        linewidths=.5, 
+        vmin=-1, 
+        vmax=1, 
+        annot_kws={"size": 10, "color": "black"}
+    )
+
+    # Adjust layout for better readability
+    plt.xticks(ticks=np.arange(len(labels)) + 0.5, labels=labels, rotation=90, ha='right', fontsize=10)
+    plt.yticks(ticks=np.arange(len(labels)) + 0.5, labels=labels, rotation=0, fontsize=10)
+
+    # Save the plot
+    plt.savefig(folder_path + filename, dpi=300)
+
+    # Show the plot
+    plt.show()
