@@ -494,7 +494,6 @@ def plot_kfdepth(df, var1, var2, mapping, onexone_line=False, log_scale=False):
     plt.show()
 
 
-# Function to fit a polynomial regression model and plot the results in 2D/3D
 def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
     """
     Fits a polynomial regression model and plots the results in 2D or 3D.
@@ -513,37 +512,66 @@ def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
     """
     x = df[x_cols]
     y = df[y_col]
-    
+
     # Generate polynomial features
     poly = PolynomialFeatures(degree)
     x_poly = poly.fit_transform(x)
-    
+
     # Fit a linear model
     model = LinearRegression()
     model.fit(x_poly, y)
-    print(pd.DataFrame(zip(x_poly, model.coef_)))
 
     print('model.coef_', model.coef_)
     print('model.intercept_', model.intercept_)
+
+    # Assign color to each point based on mapping
+    colors = []
+    for sample in df['SAMPLE']:
+        for start_str, (color, marker) in mapping.items():
+            if sample.startswith(start_str):
+                colors.append(color)
+                break
+        else:
+            colors.append('gray')  # default color if no match
 
     if len(x_cols) == 1:  # If there's only one predictor
         x_plot = np.linspace(x[x_cols[0]].min(), x[x_cols[0]].max(), 300).reshape(-1, 1)
         x_plot_poly = poly.transform(x_plot)
         y_plot = model.predict(x_plot_poly)
         y_plot = np.maximum(0, y_plot)  # Ensure y_plot is non-negative
-        
-        fig = go.Figure(data=[go.Scatter(x=x[x_cols[0]], y=y, mode='markers', name='Data points'),
-                              go.Scatter(x=x_plot[:, 0], y=y_plot, mode='lines', name=f'Polynomial fit degree {degree}')])
-        fig.update_layout(title='Polynomial Fit', xaxis_title=x_cols[0], yaxis_title=y_col, yaxis=dict(range=[0, max(y_plot)]))
+
+        fig = go.Figure(
+            data=[
+                go.Scatter(
+                    x=x[x_cols[0]], 
+                    y=y, 
+                    mode='markers', 
+                    name='Data points',
+                    marker=dict(color=colors, size=ss)
+                ),
+                go.Scatter(
+                    x=x_plot[:, 0], 
+                    y=y_plot, 
+                    mode='lines', 
+                    name=f'Polynomial fit degree {degree}'
+                )
+            ]
+        )
+        fig.update_layout(
+            title='Polynomial Fit', 
+            xaxis_title=x_cols[0], 
+            yaxis_title=y_col, 
+            yaxis=dict(range=[0, max(y_plot)])
+        )
         fig.show()
-        
+
     elif len(x_cols) == 2:  # If there are two predictors
         # Generate grid for plots
         x0_range = np.linspace(x[x_cols[0]].min(), x[x_cols[0]].max(), 50)
         x1_range = np.linspace(x[x_cols[1]].min(), x[x_cols[1]].max(), 50)
         x0_grid, x1_grid = np.meshgrid(x0_range, x1_range)
         x_grid = np.c_[x0_grid.ravel(), x1_grid.ravel()]
-        
+
         # Predict y values on grid
         x_grid_poly = poly.transform(x_grid)
         y_grid = model.predict(x_grid_poly).reshape(x0_grid.shape)
@@ -552,37 +580,29 @@ def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
         # Calculate R² score
         y_pred = model.predict(x_poly)
         r2 = r2_score(y, y_pred)
-        
-        # Assign color to each point based on mapping
-        colors = []
-        for sample in df['SAMPLE']:
-            for start_str, (color, marker) in mapping.items():
-                if sample.startswith(start_str):
-                    colors.append(color)
-                    break
-            else:
-                colors.append('gray')  # default color if no match
-        
-        # 3D surface plot with transparency and reversed color gradient
-        fig = go.Figure(data=[
-            go.Scatter3d(
-                x=x[x_cols[0]], 
-                y=x[x_cols[1]], 
-                z=y, 
-                mode='markers', 
-                marker=dict(size=5, color=colors), 
-                name='Data points'
-            ),
-            go.Surface(
-                x=x0_range, 
-                y=x1_range, 
-                z=y_grid, 
-                opacity=0.6,  # Adjust transparency here
-                colorscale='Bluered_r',  # Reverse gradient from blue to red (yellow)
-                name='Polynomial Surface'
-            )
-        ])
-        
+
+        # 3D surface plot
+        fig = go.Figure(
+            data=[
+                go.Scatter3d(
+                    x=x[x_cols[0]], 
+                    y=x[x_cols[1]], 
+                    z=y, 
+                    mode='markers', 
+                    marker=dict(size=5, color=colors), 
+                    name='Data points'
+                ),
+                go.Surface(
+                    x=x0_range, 
+                    y=x1_range, 
+                    z=y_grid, 
+                    opacity=0.6, 
+                    colorscale='Bluered_r', 
+                    name='Polynomial Surface'
+                )
+            ]
+        )
+
         fig.update_layout(
             title=f'3D Polynomial Fit (R² = {r2:.2f})',
             scene=dict(
@@ -591,48 +611,8 @@ def fit_and_plot(df, x_cols, y_col, degree, mapping, ss=60, lw=0):
                 zaxis_title=y_col
             )
         )
-        
-        # Show the interactive figure
+
         fig.show()
-        
-        # Save high-resolution image
-        #pio.write_image(fig, 'figures_output/3D_Plot_High_Resolution.png', width=1920, height=1080, scale=3)
-        
-    # Create static images from different perspectives using Matplotlib
-    fig_static, axes = plt.subplots(1, 3, figsize=(18, 6), subplot_kw={'projection': '3d'})
-
-    # Set the color map for the surface plot to be similar to Plotly's color scale
-    cmap = plt.get_cmap('coolwarm')
-
-    # Plot data points and surface for all three perspectives
-    # First perspective (default)
-    axes[0].scatter(x[x_cols[0]], x[x_cols[1]], y, c=colors, s=ss, edgecolor='k')
-    axes[0].plot_surface(x0_grid, x1_grid, y_grid, alpha=0.6, cmap=cmap)
-    axes[0].view_init(elev=15, azim=45)
-    axes[0].set_xlabel(x_cols[0])
-    axes[0].set_ylabel(x_cols[1])
-    axes[0].set_zlabel(y_col)
-    axes[0].set_title(f"3D Polynomial Fit (R² = {r2:.2f})")
-
-    # Second perspective (top view)
-    axes[1].scatter(x[x_cols[0]], x[x_cols[1]], y, c=colors, s=ss, edgecolor='k')
-    axes[1].plot_surface(x0_grid, x1_grid, y_grid, alpha=0.6, cmap=cmap)
-    axes[1].view_init(elev=25, azim=135)
-    axes[1].set_xlabel(x_cols[0])
-    axes[1].set_ylabel(x_cols[1])
-    axes[1].set_zlabel(y_col)
-
-    # Third perspective (side view)
-    axes[2].scatter(x[x_cols[0]], x[x_cols[1]], y, c=colors, s=ss, edgecolor='k')
-    axes[2].plot_surface(x0_grid, x1_grid, y_grid, alpha=0.6, cmap=cmap)
-    axes[2].view_init(elev=45, azim=225)
-    axes[2].set_xlabel(x_cols[0])
-    axes[2].set_ylabel(x_cols[1])
-    axes[2].set_zlabel(y_col)
-
-    plt.tight_layout()
-    plt.show()
-
 
 def partial_correlation(df, x_col, y_col, control_cols):
     """
@@ -732,10 +712,9 @@ def plot_correlation_matrix(corr_df, p_value_df, labels, p_value_mask=0.05, file
         vmax=1, 
         annot_kws={"size": 10, "color": "black"}
     )
-
     # Adjust layout for better readability
-    plt.xticks(ticks=np.arange(len(labels)) + 0.5, labels=labels, rotation=90, ha='right', fontsize=10)
-    plt.yticks(ticks=np.arange(len(labels)) + 0.5, labels=labels, rotation=0, fontsize=10)
+    plt.xticks(ticks=np.arange(len(labels)) + 0.5, labels=labels, rotation=90, ha='right', fontsize=14)
+    plt.yticks(ticks=np.arange(len(labels)) + 0.5, labels=labels, rotation=0, fontsize=14)
 
     # Save the plot
     plt.savefig(folder_path + filename, dpi=300)
