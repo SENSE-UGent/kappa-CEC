@@ -16,7 +16,8 @@ Clone, create a fresh virtual environment, install the dependencies and open the
 ```bash
 git clone https://github.com/SENSE-UGent/kappa-CEC.git
 cd kappa-CEC
-python -m venv .venv && source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 jupyter lab CEC-PTF.ipynb
 ```
