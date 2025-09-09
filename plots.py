@@ -108,7 +108,7 @@ def plot_feature_importance(ax, y_positions, scores, labels, title, color, xlabe
     ax.set_xlabel(xlabel, fontsize=16)
     ax.set_title(title, fontsize=18)
     ax.set_yticks(y_positions)
-    ax.set_yticklabels(labels, fontsize=12)
+    ax.set_yticklabels(labels, fontsize=14)
     ax.set_xlim(0, 1)
     ax.tick_params(axis='x', labelsize=labelsize)
     
