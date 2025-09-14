@@ -4,7 +4,7 @@
 
 ![Overview bar plot](./figures_output/barplot.png)
 
-#### Repository accompanying the paperm“Exploring the link between cation exchange capacity and magnetic susceptibility”  
+#### Repository accompanying the paper “Exploring the link between cation exchange capacity and magnetic susceptibility”  
 #### DOI: https://doi.org/10.5194/egusphere-2024-3306  
 
 ---
